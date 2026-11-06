@@ -1,40 +1,43 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/shopping-cart-fixtures';
+import { guestAddress } from '../data/cart-data';
 import {
   addProduct,
   cartRows,
   config,
   expectEmptyCart,
   fillVisibleField,
+  navigateTo,
   openCart,
   skipUnlessEnv,
-} from './support/test-config';
+} from '../support/shopping-cart-helpers';
 
 test.describe('Shopping cart', () => {
-  test('CartOrder-01: adds an in-stock product and updates the mini cart', async ({ page }) => {
+  test('CartOrder-01: adds an in-stock product and updates the mini cart', async ({ page, productPage, cartPage, miniCart }) => {
     await page.goto('/');
-    const miniCart = page.locator('.header-minicart .count, .skip-link.skip-cart .count, [data-cart-count]').first();
-    const hasMiniCartCounter = await miniCart.count() > 0;
-    const beforeText = hasMiniCartCounter ? await miniCart.textContent() ?? '' : '';
+    const counter = miniCart.counter;
+    const hasMiniCartCounter = await counter.count() > 0;
+    const beforeText = hasMiniCartCounter ? await counter.textContent() ?? '' : '';
     const beforeCount = Number(beforeText.match(/\d+/)?.[0] ?? '0');
-    await addProduct(page);
+    await productPage.open();
+    await productPage.addToCart();
     if (config.redirectToCart) await expect(page).toHaveURL(/\/checkout\/cart\/?/);
     await expect(page.locator('body')).toContainText(new RegExp(`${config.productName}.*added to your shopping cart`, 'i'));
     if (hasMiniCartCounter) {
-      const afterText = await miniCart.textContent() ?? '';
+      const afterText = await counter.textContent() ?? '';
       expect(Number(afterText.match(/\d+/)?.[0] ?? '0')).toBe(beforeCount + 1);
     }
-    await openCart(page);
-    await expect(cartRows(page)).toHaveCount(1);
+    await cartPage.open();
+    await expect(cartPage.rows).toHaveCount(1);
   });
 
-  test('CartOrder-02: updates item quantity and subtotal', async ({ page }) => {
+  test('CartOrder-02: updates item quantity and subtotal', async ({ page, cartPage }) => {
     await addProduct(page);
-    await openCart(page);
-    const row = (await cartRows(page)).first();
-    await row.locator('input[name*="[qty]"]').fill('5');
-    await page.getByRole('button', { name: /update shopping cart/i }).click();
-    await expect(row.locator('input[name*="[qty]"]')).toHaveValue('5');
-    await expect(row).toContainText(new RegExp(config.expectedPrice.toFixed(2)));
+    await cartPage.open();
+    const row = cartPage.lineItem();
+    await row.setQuantity(5);
+    await cartPage.update();
+    await expect(row.quantity).toHaveValue('5');
+    await expect(row.root).toContainText(new RegExp(config.expectedPrice.toFixed(2)));
     await expect(page.locator('#shopping-cart-totals-table')).toContainText((config.expectedPrice * 5).toFixed(2));
   });
 
@@ -148,15 +151,15 @@ test.describe('Guest checkout', () => {
   }
 
   async function fillGuestBilling(page: import('@playwright/test').Page) {
-    await fillVisibleField(page, ['#billing\\:firstname'], 'John');
-    await fillVisibleField(page, ['#billing\\:lastname'], 'Doe');
-    await fillVisibleField(page, ['#billing\\:email'], `pw-${Date.now()}@example.test`);
-    await fillVisibleField(page, ['#billing\\:street1'], '123 Main St');
-    await fillVisibleField(page, ['#billing\\:city'], 'Los Angeles');
-    await fillVisibleField(page, ['#billing\\:postcode'], '90001');
-    await fillVisibleField(page, ['#billing\\:telephone'], '555123456');
-    await page.locator('#billing\\:country_id').selectOption({ label: 'United States' });
-    await page.locator('#billing\\:region_id').selectOption({ label: 'California' });
+    await fillVisibleField(page, ['#billing\\:firstname'], guestAddress.firstName);
+    await fillVisibleField(page, ['#billing\\:lastname'], guestAddress.lastName);
+    await fillVisibleField(page, ['#billing\\:email'], guestAddress.email());
+    await fillVisibleField(page, ['#billing\\:street1'], guestAddress.street);
+    await fillVisibleField(page, ['#billing\\:city'], guestAddress.city);
+    await fillVisibleField(page, ['#billing\\:postcode'], guestAddress.postcode);
+    await fillVisibleField(page, ['#billing\\:telephone'], guestAddress.telephone);
+    await page.locator('#billing\\:country_id').selectOption({ label: guestAddress.country });
+    await page.locator('#billing\\:region_id').selectOption({ label: guestAddress.region });
     await page.locator('#billing\\:use_for_shipping_yes').check();
   }
 
@@ -207,75 +210,118 @@ test.describe('Guest checkout', () => {
   });
 });
 
+async function loginCustomer(page: import('@playwright/test').Page) {
+  await navigateTo(page, '/customer/account/login/');
+  await page.locator('#email').fill(config.customerEmail!);
+  await page.locator('#pass').fill(config.customerPassword!);
+  await page.locator('#send2').click();
+  await expect(page.locator('#login-form')).toHaveCount(0, { timeout: 30_000 });
+}
+
+async function openCustomerOrderHistory(page: import('@playwright/test').Page) {
+  await loginCustomer(page);
+  await navigateTo(page, '/sales/order/history/');
+  await expect(page.locator('h1')).toContainText(/my orders/i, { timeout: 30_000 });
+}
+
 test.describe('Registered customer and order administration', () => {
+
   test('CartOrder-18: checks out with a saved customer billing address', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD']);
-    await page.goto('/customer/account/login/');
-    await page.locator('#email').fill(config.customerEmail!);
-    await page.locator('#pass').fill(config.customerPassword!);
-    await page.getByRole('button', { name: /login/i }).click();
+    await loginCustomer(page);
     await addProduct(page);
-    await page.goto('/checkout/onepage/');
+    await navigateTo(page, '/checkout/onepage/');
     await expect(page.locator('#co-billing-form')).toBeVisible({ timeout: 60_000 });
-    await expect(page.locator('#billing-address-select')).toBeVisible();
-    await page.locator('#billing-buttons-container button').click();
-    await expect(page.locator('#opc-shipping_method, #opc-shipping')).toBeVisible({ timeout: 60_000 });
+    const savedBillingAddresses = page.locator('#billing-address-select');
+    test.skip(!(await savedBillingAddresses.count()), 'The configured customer needs a saved billing address for this scenario');
+    await expect(savedBillingAddresses).toBeVisible();
+    await expect(savedBillingAddresses).toHaveValue(/.+/);
+    await expect(page.locator('#checkout-shipping-method-load')).toContainText(config.shippingMethodLabel, { timeout: 60_000 });
   });
 
   test('CartOrder-19: saves a new shipping address to the account address book', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD']);
-    await page.goto('/customer/account/login/');
-    await page.locator('#email').fill(config.customerEmail!);
-    await page.locator('#pass').fill(config.customerPassword!);
-    await page.getByRole('button', { name: /login/i }).click();
+    await loginCustomer(page);
     await addProduct(page);
-    await page.goto('/checkout/onepage/');
+    await navigateTo(page, '/checkout/onepage/');
     await expect(page.locator('#co-billing-form')).toBeVisible({ timeout: 60_000 });
     await page.locator('#billing\\:use_for_shipping_no').check();
-    await page.locator('#billing-buttons-container button').click();
-    await expect(page.locator('#co-shipping-form')).toBeVisible({ timeout: 60_000 });
-    await page.locator('#shipping-address-select').selectOption('');
-    await page.locator('#shipping-new-address-form').getByLabel(/first name/i).fill('Playwright');
-    await page.locator('#shipping-new-address-form').getByLabel(/last name/i).fill('Test');
-    await page.locator('#shipping-new-address-form').getByLabel(/street address/i).first().fill(`Automation ${Date.now()}`);
-    await page.locator('#shipping-new-address-form').getByLabel(/city/i).fill('Los Angeles');
-    await page.locator('#shipping-new-address-form').getByLabel(/zip|postal/i).fill('90001');
-    await page.locator('#shipping-new-address-form').getByLabel(/telephone/i).fill('555123456');
-    await page.locator('#shipping-new-address-form').getByLabel(/country/i).selectOption({ label: /united states/i });
-    await page.locator('#shipping-new-address-form').getByLabel(/state|province/i).selectOption({ label: /california/i });
-    await page.locator('#shipping:save_in_address_book').check();
-    await page.locator('#shipping-buttons-container button').click();
-    await expect(page.locator('#opc-shipping_method')).toBeVisible({ timeout: 60_000 });
+    const shippingAddressSelect = page.locator('#shipping-address-select');
+    if (await shippingAddressSelect.count()) await shippingAddressSelect.selectOption('');
+    const shippingForm = page.locator('#shipping-new-address-form');
+    await expect(shippingForm).toBeVisible({ timeout: 30_000 });
+    await shippingForm.locator('#shipping\\:firstname').fill('Playwright');
+    await shippingForm.locator('#shipping\\:lastname').fill('Test');
+    await shippingForm.locator('#shipping\\:street1').fill(`Automation ${Date.now()}`);
+    await shippingForm.locator('#shipping\\:city').fill('Los Angeles');
+    await shippingForm.locator('#shipping\\:postcode').fill('90001');
+    await shippingForm.locator('#shipping\\:telephone').fill('555123456');
+    await shippingForm.locator('#shipping\\:country_id').selectOption({ label: 'United States' });
+    await expect(shippingForm.locator('#shipping\\:region_id')).toBeVisible({ timeout: 30_000 });
+    await shippingForm.locator('#shipping\\:region_id').selectOption({ label: 'California' });
+
+    const saveInAddressBook = page.locator('#shipping\\:save_in_address_book');
+    if (await saveInAddressBook.isVisible().catch(() => false)) {
+      await saveInAddressBook.check();
+    } else {
+      // Maho includes a hidden checked-by-default field when the customer has no addresses yet.
+      await expect(saveInAddressBook).toHaveValue('1');
+    }
+    await expect(page.locator('#checkout-shipping-method-load')).toContainText(config.shippingMethodLabel, { timeout: 60_000 });
   });
 
   test('CartOrder-20: customer can view a placed order in order history', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD', 'PW_REGISTERED_ORDER_ID']);
-    await page.goto('/customer/account/login/');
-    await page.locator('#email').fill(config.customerEmail!);
-    await page.locator('#pass').fill(config.customerPassword!);
-    await page.getByRole('button', { name: /login/i }).click();
-    await page.goto('/sales/order/history/');
+    await openCustomerOrderHistory(page);
     await expect(page.locator('body')).toContainText(process.env.PW_REGISTERED_ORDER_ID!);
   });
 });
 
 test.describe('Admin order workflow', () => {
+  async function openAdminOrders(page: import('@playwright/test').Page) {
+    const ordersLink = page.locator('#nav-admin-sales-order');
+    await expect(ordersLink).toBeVisible({ timeout: 30_000 });
+    const ordersUrl = await ordersLink.getAttribute('href');
+    expect(ordersUrl, 'admin navigation should provide a keyed Orders URL').toBeTruthy();
+    await navigateTo(page, ordersUrl!);
+    await expect(page.locator('#sales_order_grid')).toBeVisible({ timeout: 60_000 });
+  }
+
+  async function openAdminOrderByEntityId(page: import('@playwright/test').Page, entityId: string) {
+    await openAdminOrders(page);
+    const pageSize = page.locator('select[aria-label="Items per page"]');
+    if (await pageSize.count()) {
+      const values = await pageSize.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+      if (values.length) await pageSize.selectOption(values[values.length - 1]);
+    }
+
+    const orderLink = page.locator(`#sales_order_grid a[href*="/order_id/${entityId}/"]`).first();
+    await expect(orderLink, `orders grid should contain internal order ID ${entityId}`).toBeVisible({ timeout: 60_000 });
+    await orderLink.click();
+    await expect(page.locator('body')).toContainText(/order information|order #/i, { timeout: 30_000 });
+  }
+
   async function adminLogin(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo) {
     await skipUnlessEnv(testInfo, ['MAHO_ADMIN_USERNAME', 'MAHO_ADMIN_PASSWORD']);
-    await page.goto(`${config.adminPath}/`);
+    await navigateTo(page, `${config.adminPath}/`);
     if (await page.locator('#username').isVisible().catch(() => false)) {
       await page.locator('#username').fill(config.adminUsername!);
       await page.locator('#login').fill(config.adminPassword!);
-      await page.getByRole('button', { name: /login/i }).click();
+      await page.locator('#loginForm input[type="submit"]').first().click();
+      await expect(page.locator('#loginForm'), 'admin credentials should authenticate successfully').toHaveCount(0, { timeout: 30_000 });
     }
   }
 
   test('CartOrder-21: admin can find and inspect an order', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ID']);
     await adminLogin(page, testInfo);
-    await page.goto(`${config.adminPath}/sales_order/`);
+    await openAdminOrders(page);
+    const orderIdFilter = page.locator('#sales_order_grid_filter_real_order_id, input[name="real_order_id"]').first();
+    await expect(orderIdFilter, 'the admin orders grid should expose an order number filter').toBeVisible({ timeout: 30_000 });
+    await orderIdFilter.fill(process.env.PW_ADMIN_ORDER_ID!);
+    await page.getByRole('button', { name: /^search$/i }).click();
     const orderRow = page.locator('tr').filter({ hasText: process.env.PW_ADMIN_ORDER_ID! }).first();
-    await expect(orderRow).toBeVisible();
+    await expect(orderRow, `admin order grid should contain increment ID ${process.env.PW_ADMIN_ORDER_ID}`).toBeVisible({ timeout: 60_000 });
     await orderRow.locator('a').first().click();
     await expect(page.locator('body')).toContainText(/order information|order #/i);
   });
@@ -283,26 +329,27 @@ test.describe('Admin order workflow', () => {
   test('CartOrder-22: admin can invoice a pending order', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ENTITY_ID']);
     await adminLogin(page, testInfo);
-    await page.goto(`${config.adminPath}/sales_order/view/order_id/${process.env.PW_ADMIN_ORDER_ENTITY_ID}/`);
+    await openAdminOrderByEntityId(page, process.env.PW_ADMIN_ORDER_ENTITY_ID!);
     await page.getByRole('button', { name: /invoice/i }).click();
     await page.getByRole('button', { name: /submit invoice/i }).click();
-    await expect(page.locator('.success-msg, .messages')).toContainText(/invoice has been created/i);
+    await expect(page.locator('.messages')).toContainText(/invoice has been created/i);
   });
 
   test('CartOrder-23: admin can ship an invoiced order and add tracking', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ENTITY_ID']);
     await adminLogin(page, testInfo);
-    await page.goto(`${config.adminPath}/sales_order/view/order_id/${process.env.PW_ADMIN_ORDER_ENTITY_ID}/`);
+    await openAdminOrderByEntityId(page, process.env.PW_ADMIN_ORDER_ENTITY_ID!);
     await page.getByRole('button', { name: /ship/i }).click();
-    await page.locator('input[name*="tracking"][name*="number"], input[name="tracking[1][number]"]').first().fill('TRACK123456');
+    await page.getByRole('button', { name: /add tracking number/i }).click();
+    await page.locator('input[name*="tracking"][name*="number"]:not([disabled])').last().fill('TRACK123456');
     await page.getByRole('button', { name: /submit shipment/i }).click();
-    await expect(page.locator('.success-msg, .messages')).toContainText(/shipment has been created/i);
+    await expect(page.locator('.messages')).toContainText(/shipment has been created/i);
   });
 
   test('CartOrder-24: admin can cancel a pending order', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_CANCEL_ORDER_ENTITY_ID']);
     await adminLogin(page, testInfo);
-    await page.goto(`${config.adminPath}/sales_order/view/order_id/${process.env.PW_CANCEL_ORDER_ENTITY_ID}/`);
+    await openAdminOrderByEntityId(page, process.env.PW_CANCEL_ORDER_ENTITY_ID!);
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page.locator('body')).toContainText(/canceled/i);
@@ -310,12 +357,11 @@ test.describe('Admin order workflow', () => {
 
   test('CartOrder-25: customer order view reflects shipment tracking', async ({ page }, testInfo) => {
     await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD', 'PW_REGISTERED_ORDER_ID']);
-    await page.goto('/customer/account/login/');
-    await page.locator('#email').fill(config.customerEmail!);
-    await page.locator('#pass').fill(config.customerPassword!);
-    await page.getByRole('button', { name: /login/i }).click();
-    await page.goto('/sales/order/history/');
-    await page.getByRole('link', { name: new RegExp(process.env.PW_REGISTERED_ORDER_ID!) }).click();
+    await openCustomerOrderHistory(page);
+    const orderRow = page.locator('tr').filter({ hasText: process.env.PW_REGISTERED_ORDER_ID! }).first();
+    await expect(orderRow, `customer history should contain order ${process.env.PW_REGISTERED_ORDER_ID}`).toBeVisible();
+    await orderRow.getByRole('link', { name: /view/i }).click();
+    await page.getByRole('link', { name: 'Shipments', exact: true }).click();
     await expect(page.locator('body')).toContainText('TRACK123456');
   });
 });

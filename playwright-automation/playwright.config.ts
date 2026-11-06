@@ -1,12 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Available in Node 20.12+; loading this here makes .env values available to
+// both the Playwright config and the test modules that read process.env.
+try {
+  process.loadEnvFile(path.resolve(__dirname, '.env'));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+}
 
 /**
  * See https://playwright.dev/docs/test-configuration.

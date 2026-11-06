@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
-    "test:cart": "playwright test tests/shopping-cart.spec.ts",
-    "test:cart:headed": "playwright test tests/shopping-cart.spec.ts --headed",
+    "test:cart": "playwright test tests/features/shopping-cart/specs",
+    "test:products": "playwright test tests/features/product-management/specs",
+    "test:products:headed": "playwright test tests/features/product-management/specs --headed",
+    "test:cart:headed": "playwright test tests/features/shopping-cart/specs --headed",
     "report": "playwright show-report"
   },
   "keywords": [],
