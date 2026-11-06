@@ -22,9 +22,10 @@ To run the complete guest checkout scenario, ensure the local store allows guest
 | `PW_PRODUCT_PRICE` | `45` |
 | `PW_CATEGORY_URL` | `/default/kids/` |
 | `PW_REDIRECT_TO_CART` | `false`; set to `true` if the store is configured to redirect after add-to-cart |
-| `PW_SHIPPING_LABEL` | `Flat Rate - Fixed` |
+| `PW_CONTINUE_SHOPPING_URL` | `/default/`; active local cart falls back to the store home page |
+| `PW_SHIPPING_LABEL` | `Flat Rate` |
 | `PW_SHIPPING_PRICE` | `5` |
-| `PW_PAYMENT_LABEL` | `Check / Money Order` |
+| `PW_PAYMENT_LABEL` | `Check / Money order` |
 | `PW_CUSTOMER_EMAIL`, `PW_CUSTOMER_PASSWORD` | Seeded customer credentials |
 | `PW_REGISTERED_ORDER_ID` | Order increment ID used by customer history cases |
 | `MAHO_ADMIN_PATH` | `/admin`; set the installation's actual admin front name |

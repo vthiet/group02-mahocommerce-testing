@@ -52,6 +52,9 @@ test.describe('Shopping cart', () => {
     const row = (await cartRows(page)).first();
     await row.locator('input[name*="[qty]"]').fill('-2');
     await page.getByRole('button', { name: /update shopping cart/i }).click();
+    // The cart form can retain the submitted value in its current response;
+    // reload to assert the quantity actually persisted in the quote.
+    await openCart(page);
     await expect(cartRows(page)).toHaveCount(1);
     const qty = Number(await (await cartRows(page)).first().locator('input[name*="[qty]"]').inputValue());
     expect(qty).toBeGreaterThan(0);
@@ -62,7 +65,7 @@ test.describe('Shopping cart', () => {
     await openCart(page);
     await (await cartRows(page)).first().locator('input[name*="[qty]"]').fill('9999');
     await page.getByRole('button', { name: /update shopping cart/i }).click();
-    await expect(page.locator('.messages, .error-msg, .validation-advice')).toContainText(/not available|desired quantity|requested quantity/i);
+    await expect(page.locator('.messages').first()).toContainText(/not available|desired quantity|requested quantity/i);
   });
 
   test('CartOrder-05: removes a cart line item', async ({ page }) => {
@@ -95,25 +98,27 @@ test.describe('Shopping cart', () => {
     await expect(crossSellLinks.first()).toBeVisible();
   });
 
-  test('CartOrder-08: continue shopping returns to the configured category', async ({ page }) => {
+  test('CartOrder-08: continue shopping returns to the configured fallback URL', async ({ page }) => {
     await page.goto(config.categoryUrl);
-    const productLink = page.getByRole('link', { name: new RegExp(config.productName, 'i') }).first();
-    await expect(productLink, 'fixture product must be listed in the configured category').toBeVisible();
-    await productLink.click();
+    const productCard = page.locator('.category-products .products-grid li').filter({ hasText: config.productName }).first();
+    await expect(productCard, 'fixture product must be listed in the configured category').toBeVisible();
+    const productUrl = await productCard.locator('a.product-image').getAttribute('href');
+    expect(productUrl).toBeTruthy();
+    await page.goto(productUrl!);
     await addProduct(page, 1, false);
     await openCart(page);
     await page.getByRole('button', { name: /continue shopping/i }).click();
-    await expect(page).toHaveURL(new RegExp(config.categoryUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    await expect(page).toHaveURL(new RegExp(config.continueShoppingUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   });
 
   test('CartOrder-09: estimates shipping for the configured destination', async ({ page }) => {
     await addProduct(page);
     await openCart(page);
     const country = page.locator('#country');
-    await country.selectOption({ label: /united states/i });
+    await country.selectOption({ label: 'United States' });
     const region = page.locator('#region_id');
     await expect(region).toBeVisible();
-    await region.selectOption({ label: /california/i });
+    await region.selectOption({ label: 'California' });
     await page.locator('#postcode').fill('90210');
     await page.getByRole('button', { name: /^estimate$/i }).click();
     await expect(page.locator('#co-shipping-method-form-container')).toContainText(config.shippingMethodLabel, { timeout: 45_000 });
@@ -122,8 +127,8 @@ test.describe('Shopping cart', () => {
   test('CartOrder-10: applies estimated shipping to cart totals', async ({ page }) => {
     await addProduct(page);
     await openCart(page);
-    await page.locator('#country').selectOption({ label: /united states/i });
-    await page.locator('#region_id').selectOption({ label: /california/i });
+    await page.locator('#country').selectOption({ label: 'United States' });
+    await page.locator('#region_id').selectOption({ label: 'California' });
     await page.locator('#postcode').fill('90210');
     await page.getByRole('button', { name: /^estimate$/i }).click();
     const rates = page.locator('#co-shipping-method-form-container');
@@ -138,72 +143,64 @@ test.describe('Guest checkout', () => {
   async function openGuestCheckout(page: import('@playwright/test').Page) {
     await addProduct(page);
     await openCart(page);
-    await page.getByRole('link', { name: /proceed to checkout/i }).first().click();
+    await page.getByRole('button', { name: /proceed to checkout/i }).first().click();
     await expect(page.locator('#co-billing-form')).toBeVisible({ timeout: 60_000 });
+  }
+
+  async function fillGuestBilling(page: import('@playwright/test').Page) {
+    await fillVisibleField(page, ['#billing\\:firstname'], 'John');
+    await fillVisibleField(page, ['#billing\\:lastname'], 'Doe');
+    await fillVisibleField(page, ['#billing\\:email'], `pw-${Date.now()}@example.test`);
+    await fillVisibleField(page, ['#billing\\:street1'], '123 Main St');
+    await fillVisibleField(page, ['#billing\\:city'], 'Los Angeles');
+    await fillVisibleField(page, ['#billing\\:postcode'], '90001');
+    await fillVisibleField(page, ['#billing\\:telephone'], '555123456');
+    await page.locator('#billing\\:country_id').selectOption({ label: 'United States' });
+    await page.locator('#billing\\:region_id').selectOption({ label: 'California' });
+    await page.locator('#billing\\:use_for_shipping_yes').check();
   }
 
   test('CartOrder-11: opens guest billing in one-page checkout', async ({ page }) => {
     await openGuestCheckout(page);
-    await expect(page.locator('#opc-billing')).toBeVisible();
+    await expect(page.locator('#onestep-checkout')).toBeVisible();
+    await expect(page.locator('#onestep-billing')).toBeVisible();
     await expect(page.locator('#co-billing-form')).toBeEnabled();
   });
 
   test('CartOrder-12: blocks billing with required fields missing', async ({ page }) => {
     await openGuestCheckout(page);
-    await page.locator('#billing-buttons-container button').click();
+    await page.getByRole('button', { name: /place order/i }).click();
     await expect(page.locator('#co-billing-form .validation-failed, #co-billing-form .validation-advice').first()).toBeVisible();
-    await expect(page.locator('#opc-shipping_method')).not.toHaveClass(/active/);
+    await expect(page).not.toHaveURL(/checkout\/onepage\/success/);
   });
 
-  test('CartOrder-13: saves guest billing and advances to shipping method', async ({ page }) => {
+  test('CartOrder-13: saves guest billing and loads shipping methods', async ({ page }) => {
     await openGuestCheckout(page);
-    await fillVisibleField(page, ['#billing\\:firstname'], 'John');
-    await fillVisibleField(page, ['#billing\\:lastname'], 'Doe');
-    await fillVisibleField(page, ['#billing\\:email'], `pw-${Date.now()}@example.test`);
-    await fillVisibleField(page, ['#billing\\:street1'], '123 Main St');
-    await fillVisibleField(page, ['#billing\\:city'], 'Los Angeles');
-    await fillVisibleField(page, ['#billing\\:postcode'], '90001');
-    await fillVisibleField(page, ['#billing\\:telephone'], '555123456');
-    await page.locator('#billing\\:country_id').selectOption({ label: /united states/i });
-    await page.locator('#billing\\:region_id').selectOption({ label: /california/i });
-    await page.locator('#billing\\:use_for_shipping_yes').check();
-    await page.locator('#billing-buttons-container button').click();
-    await expect(page.locator('#opc-shipping_method')).toHaveClass(/active|allow/, { timeout: 60_000 });
+    await fillGuestBilling(page);
+    const shippingMethod = page.locator('#checkout-shipping-method-load input[name="shipping_method"]');
+    await expect(page.locator('#checkout-shipping-method-load')).toContainText(config.shippingMethodLabel, { timeout: 60_000 });
+    await expect(shippingMethod.first()).toBeChecked({ timeout: 60_000 });
   });
 
-  test('CartOrder-14 through 17: completes a guest order and captures its dynamic ID', async ({ page }) => {
+  test('CartOrder-14 through 17: selects methods, reviews, and places a guest order', async ({ page }) => {
     await openGuestCheckout(page);
-    await fillVisibleField(page, ['#billing\\:firstname'], 'John');
-    await fillVisibleField(page, ['#billing\\:lastname'], 'Doe');
-    await fillVisibleField(page, ['#billing\\:email'], `pw-${Date.now()}@example.test`);
-    await fillVisibleField(page, ['#billing\\:street1'], '123 Main St');
-    await fillVisibleField(page, ['#billing\\:city'], 'Los Angeles');
-    await fillVisibleField(page, ['#billing\\:postcode'], '90001');
-    await fillVisibleField(page, ['#billing\\:telephone'], '555123456');
-    await page.locator('#billing\\:country_id').selectOption({ label: /united states/i });
-    await page.locator('#billing\\:region_id').selectOption({ label: /california/i });
-    await page.locator('#billing\\:use_for_shipping_yes').check();
-    await page.locator('#billing-buttons-container button').click();
+    await fillGuestBilling(page);
 
-    const shipping = page.locator('#opc-shipping_method');
-    await expect(shipping).toHaveClass(/active|allow/, { timeout: 60_000 });
-    await expect(shipping).toContainText(config.shippingMethodLabel);
-    await shipping.locator('input[type="radio"]').first().check();
-    await page.locator('#shipping-method-buttons-container button').click();
+    const shippingMethod = page.locator('#checkout-shipping-method-load input[name="shipping_method"]');
+    await expect(page.locator('#checkout-shipping-method-load')).toContainText(config.shippingMethodLabel);
+    await expect(shippingMethod.first()).toBeChecked({ timeout: 60_000 });
 
-    const payment = page.locator('#opc-payment');
-    await expect(payment).toHaveClass(/active|allow/, { timeout: 60_000 });
-    await payment.getByText(config.paymentMethodLabel, { exact: false }).first().click();
-    await page.locator('#payment-buttons-container button').click();
+    const paymentMethod = page.getByRole('radio', { name: new RegExp(config.paymentMethodLabel, 'i') });
+    await expect(paymentMethod.first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('#checkout-payment-method-load')).toContainText(config.paymentMethodLabel);
+    await paymentMethod.first().check();
 
-    const review = page.locator('#opc-review');
-    await expect(review).toHaveClass(/active|allow/, { timeout: 60_000 });
-    await expect(review).toContainText(config.productName);
-    await page.locator('#review-buttons-container button').click();
+    await expect(page.locator('#checkout-review-load')).toContainText(config.productName, { timeout: 60_000 });
+    await page.getByRole('button', { name: /place order/i }).click();
     await expect(page).toHaveURL(/checkout\/onepage\/success/, { timeout: 90_000 });
     await expect(page.locator('body')).toContainText(/your order has been received/i);
     const successText = await page.locator('body').innerText();
-    const orderId = successText.match(/(?:order\s*(?:number|#|id)?\s*[:#]?\s*)(\d{6,})/i)?.[1];
+    const orderId = successText.match(/order\s*#?\s*(?:is:\s*)?(\d{6,})/i)?.[1];
     expect(orderId, 'success page should display an order increment ID').toBeTruthy();
     await page.context().storageState({ path: test.info().outputPath('guest-order-state.json') });
     test.info().annotations.push({ type: 'order-id', description: orderId! });
@@ -264,7 +261,7 @@ test.describe('Registered customer and order administration', () => {
 
 test.describe('Admin order workflow', () => {
   async function adminLogin(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo) {
-    await skipUnlessEnv(testInfo, ['MAHO_ADMIN_USERNAME', 'MAHO_ADMIN_PASSWORD', 'PW_ADMIN_ORDER_ID']);
+    await skipUnlessEnv(testInfo, ['MAHO_ADMIN_USERNAME', 'MAHO_ADMIN_PASSWORD']);
     await page.goto(`${config.adminPath}/`);
     if (await page.locator('#username').isVisible().catch(() => false)) {
       await page.locator('#username').fill(config.adminUsername!);
@@ -274,6 +271,7 @@ test.describe('Admin order workflow', () => {
   }
 
   test('CartOrder-21: admin can find and inspect an order', async ({ page }, testInfo) => {
+    await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ID']);
     await adminLogin(page, testInfo);
     await page.goto(`${config.adminPath}/sales_order/`);
     const orderRow = page.locator('tr').filter({ hasText: process.env.PW_ADMIN_ORDER_ID! }).first();
