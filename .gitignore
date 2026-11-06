@@ -1,0 +1,180 @@
+# ==========================================
+# Gitignore for Multi-Subproject Repository
+# Maho eCommerce Testing Project
+# ==========================================
+
+# ------------------------------------------
+# 1. SENSITIVE FILES & CREDENTIALS (CRITICAL)
+# ------------------------------------------
+# Environment variables and secrets
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+!**/.env.template
+!**/.env.testing.dist
+
+# Magento / Maho eCommerce database credentials & encryption key
+**/app/etc/local.xml
+**/local.xml
+!**/local.xml.template
+
+# Authentication tokens, cookies, auth state
+**/auth.json
+**/.npmrc
+**/playwright/.auth/
+**/.auth/
+**/*auth*.json
+**/*credentials*.json
+**/*secret*.json
+
+# SSL / Private keys and certificates
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.pkcs12
+*.jks
+*.keystore
+**/*.pem
+**/*.key
+**/*.cert
+**/*.crt
+**/*.pfx
+**/*.p12
+**/*.pkcs12
+**/*.jks
+**/*.keystore
+
+# ------------------------------------------
+# 2. APPLICATION UNDER TEST (Maho eCommerce Source)
+# ------------------------------------------
+# Maho Commerce upstream source directory / local install
+maho-*/
+maho/
+
+# Maho runtime, cache, logs, sessions, backups (if placed anywhere)
+**/var/cache/
+**/var/session/
+**/var/log/
+**/var/report/
+**/var/locks/
+**/var/backups/
+**/var/tmp/
+**/var/export/
+**/media/import/
+**/media/export/
+
+# DDEV local environment container data
+**/.ddev/.dbimage
+**/.ddev/db_snapshots/
+**/.ddev/.global_commands/
+
+# PHP Composer dependencies
+vendor/
+**/vendor/
+
+# ------------------------------------------
+# 3. NODE.JS / PLAYWRIGHT SUBPROJECTS
+# ------------------------------------------
+node_modules/
+**/node_modules/
+
+# Playwright test execution results, traces, videos, HTML reports
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+blob-report/
+**/blob-report/
+playwright/.cache/
+**/playwright/.cache/
+
+# Code coverage reports
+coverage/
+**/coverage/
+.nyc_output/
+**/.nyc_output/
+
+# ------------------------------------------
+# 4. JAVA / AUTOMATION SUBPROJECTS (Maven / Gradle)
+# ------------------------------------------
+target/
+**/target/
+build/
+**/build/
+.gradle/
+**/.gradle/
+bin/
+**/bin/
+*.class
+**/*.class
+*.jar
+*.war
+*.ear
+
+# ------------------------------------------
+# 5. PYTHON AUTOMATION (if applicable)
+# ------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+venv/
+.venv/
+env/
+
+# ------------------------------------------
+# 6. LOGS & TEMPORARY FILES
+# ------------------------------------------
+*.log
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+*.tmp
+*.temp
+**/*.tmp
+**/*.temp
+
+# Microsoft Office / Excel temporary lock files (e.g. ~$Group02_*.xlsx)
+~$*
+**/~$*
+
+# ------------------------------------------
+# 7. IDE & EDITOR FILES
+# ------------------------------------------
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+*.ipr
+*.iws
+
+.vscode/
+**/.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~
+*.bak
+
+# ------------------------------------------
+# 8. OPERATING SYSTEM ARTIFACTS
+# ------------------------------------------
+.DS_Store
+**/.DS_Store
+Thumbs.db
+**/Thumbs.db
+ehthumbs.db
+**/ehthumbs.db
+[Dd]esktop.ini
+**/[Dd]esktop.ini
