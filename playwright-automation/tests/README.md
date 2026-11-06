@@ -32,6 +32,24 @@ From `playwright-automation`:
 npm run test:cart
 ```
 
+## Reports and debugging artifacts
+
+The Playwright config writes both reports on every run:
+
+- **HTML report:** `playwright-report/`. Open it with `npm run report` or `npx playwright show-report`.
+- **JUnit XML:** `test-results/junit.xml`. This can be consumed by CI systems that accept JUnit results.
+- **Screenshots:** one screenshot is captured for every test, whether it passes or fails. Playwright saves it under that test's folder in `test-results/` and attaches it to the HTML report.
+- **Trace and video:** retained for failed tests in `test-results/`. Open a trace with `npx playwright show-trace <path-to-trace.zip>`; the video can be opened with any video player.
+
+For example, run the promotion suite and then open its HTML report:
+
+```powershell
+npm run test:promotions
+npm run report
+```
+
+Run the full suite the same way with `npm test`. Each run replaces the previous HTML report and test result artifacts. To keep a run's artifacts, copy `playwright-report/` and `test-results/` elsewhere before starting another run.
+
 To run the complete guest checkout scenario, ensure the local store allows guest checkout and has the configured shipping and payment methods enabled. Cases that need customer/admin accounts or an existing order are skipped with a reason unless their environment variables are set.
 
 ## Configure customer and admin cases

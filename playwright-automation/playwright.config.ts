@@ -24,8 +24,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: 1,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  /* Keep a browsable report and machine-readable JUnit results for every run. */
+  reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['junit', { outputFile: 'test-results/junit.xml' }],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL: process.env.MAHO_BASE_URL ?? 'https://maho-26.9.3.ddev.site',
@@ -34,8 +37,11 @@ export default defineConfig({
     headless: true,
     ignoreHTTPSErrors: true,
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    /* Save one screenshot for each test and attach it to the HTML report. */
+    screenshot: 'on',
+    /* Preserve richer diagnostics for failed tests only. */
+    trace: 'retain-on-failure',
+    video: 'retain-on-failure',
   },
 
   /* Keep browser coverage configurable; local DDEV runs default to Chromium. */

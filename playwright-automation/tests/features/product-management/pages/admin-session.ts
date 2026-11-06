@@ -12,8 +12,9 @@ export async function navigateAdminRoute(page: Page, route: string): Promise<voi
   let link = page.locator(`a[href*="/${routeSuffix}/"]`).first();
 
   if (!(await link.isVisible().catch(() => false))) {
-    const catalogMenu = page.getByRole('link', { name: 'Catalog', exact: true });
-    if (await catalogMenu.isVisible().catch(() => false)) await catalogMenu.click();
+    const menuName = routeSuffix.startsWith('promo_') ? 'Promotions' : 'Catalog';
+    const menu = page.getByRole('link', { name: menuName, exact: true });
+    if (await menu.isVisible().catch(() => false)) await menu.click();
     link = page.locator(`a[href*="/${routeSuffix}/"]`).first();
   }
 
