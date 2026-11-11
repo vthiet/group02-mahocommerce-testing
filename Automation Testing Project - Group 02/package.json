@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:cart": "playwright test tests/23130314_VoVanThiet/shopping-cart/specs",
+    "test:products": "playwright test tests/23130314_VoVanThiet/product-management/specs",
+    "test:promotions": "playwright test tests/23130314_VoVanThiet/promotion-management/specs",
+    "test:products:headed": "playwright test tests/23130314_VoVanThiet/product-management/specs --headed",
+    "test:cart:headed": "playwright test tests/23130314_VoVanThiet/shopping-cart/specs --headed",
+    "report": "playwright show-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
