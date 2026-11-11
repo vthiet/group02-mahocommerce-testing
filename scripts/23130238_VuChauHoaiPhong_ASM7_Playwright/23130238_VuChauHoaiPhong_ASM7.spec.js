@@ -1,3 +1,4 @@
+require('./environment.ts');
 const {test: test, expect: expect} = require("@playwright/test"); const BASE = "https://demo.mahocommerce.com/default/"; const FASHION = `${BASE}fashion/`; test.use({
     viewport: {
         width: 1366,
@@ -301,7 +302,7 @@ async function asm7xField(page, name) {
         quantity: [ "#qty", 'input[name="qty"]', 'input[name="quantity"]' ]
     }; return asm7xFind(page, selectors[name] || [ `#${name}`, `[name="${name}"]` ]); }
 function asm7xSheetFor(id) {
-    if (/^(Search|Filter|Sort)_/.test(id)) return "Search"; if (/^(Profile|Address)_/.test(id)) return "Profile"; return "Order"; }
+    if (/^(DEF_Search_|Search|Filter|Sort)_/.test(id) || id.startsWith("DEF_Search_")) return "Search"; if (/^(DEF_Profile_|Profile|Address)_/.test(id) || id.startsWith("DEF_Profile_")) return "Profile"; return "Order"; }
 function asm7xRefreshDashboard(wb) {
     const dashboard = wb.Sheets.Dashboard; if (!dashboard) return; const configs = [ {
         name: "Search",
@@ -414,33 +415,88 @@ async function asm7xExecute(testInfo, page, id, callback, options = {}) {
             description: actual
         }); test.skip(true, actual); }
     if (failure) throw failure; }
+async function asm7xAutoRegister(page) {
+    try {
+        const regUrl = new URL("customer/account/create/", BASE).toString();
+        await gotoStorefront(page, regUrl);
+        await page.waitForLoadState("domcontentloaded");
+        const tabReg = page.locator("#tab-register").first();
+        if (await tabReg.count()) await tabReg.click().catch(() => {});
+        await page.waitForTimeout(400);
+
+        const form = page.locator("#form-validate-register, #form-validate").first();
+        const fill = async (sel, val) => {
+            const el = form.locator(sel).first();
+            if (await el.count()) await el.fill(val);
+        };
+        await fill('#firstname, [name="firstname"]', ASM7X_QA.firstName);
+        await fill('#lastname, [name="lastname"]', ASM7X_QA.lastName);
+        await fill('#email_address_register, #email_address, [name="email"]', ASM7X_QA.email);
+        await fill('#password_register, [name="password"]', ASM7X_QA.password);
+        await fill('#confirmation_register, [name="confirmation"]', ASM7X_QA.password);
+
+        const submitBtn = form.locator('button[type="submit"]').first();
+        if (await submitBtn.count()) {
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {}),
+                submitBtn.click()
+            ]);
+        }
+        await page.waitForTimeout(1000);
+        const loginAfter = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password);
+        if (loginAfter.ok) return { ok: true };
+        const body = await page.locator("body").innerText().catch(() => "");
+        if (/my account|account dashboard|hello,/i.test(body)) return { ok: true };
+        return { ok: false, reason: "Đăng ký không thành công" };
+    } catch (e) {
+        return { ok: false, reason: e.message };
+    }
+}
+
 async function asm7xEnsureLogin(page) {
     if (!ASM7X_QA.email || !ASM7X_QA.password) {
         return {
             ok: false,
             reason: "Thiếu QA_EMAIL hoặc QA_PASSWORD."
-        }; }
+        };
+    }
     try {
-        await gotoStorefront(page, ASM7X_ACCOUNT_URL); let password = await asm7xField(page, "password"); if (password) {
-            const login = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password); if (!login.ok) return login; await gotoStorefront(page, ASM7X_ACCOUNT_URL);
-            password = await asm7xField(page, "password"); }
+        await gotoStorefront(page, ASM7X_ACCOUNT_URL);
+        let password = await asm7xField(page, "password");
+        if (password) {
+            let login = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password);
+            if (!login.ok) {
+                const reg = await asm7xAutoRegister(page);
+                if (reg.ok) {
+                    login = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password);
+                }
+                if (!login.ok) return login;
+            }
+            await gotoStorefront(page, ASM7X_ACCOUNT_URL);
+            password = await asm7xField(page, "password");
+        }
         if (password || /customer\/account\/login/i.test(page.url())) {
             return {
                 ok: false,
                 reason: "Đăng nhập không thành công hoặc phiên bị yêu cầu xác thực lại."
-            }; }
-        const body = await page.locator("body").innerText().catch(() => ""); if (/my account|account dashboard|account information/i.test(body)) {
+            };
+        }
+        const body = await page.locator("body").innerText().catch(() => "");
+        if (/my account|account dashboard|account information/i.test(body)) {
             return {
                 ok: true
-            }; }
+            };
+        }
         return {
             ok: false,
             reason: "Không xác minh được trạng thái My Account."
-        }; } catch (error) {
+        };
+    } catch (error) {
         return {
             ok: false,
             reason: error.message
-        }; }
+        };
+    }
 }
 async function asm7xGo(page, url) {
     await gotoStorefront(page, url); }
@@ -559,7 +615,7 @@ async function asm7xRequired(field) {
     }).catch(() => false); }
 test.afterEach(async ({page: page}, testInfo) => {
     const title = testInfo.title || ""; const id = title.split(" - ")[0].split(" | ")[0].trim();
-    if (!/^(Search|Filter|Sort|Profile|Address|Cart|Checkout|Order|Invoice)_/.test(id)) {
+    if (!/^(DEF_|Search_|Filter_|Sort_|Profile_|Address_|Cart_|Checkout_|Order_|Invoice_)/.test(id)) {
         return; }
     const errorText = testInfo.error && testInfo.error.message ? testInfo.error.message : ""; const blocked = (testInfo.annotations || []).find(item => item.type === "Blocked");
     let status = "FAILED"; if (blocked || /^BLOCKED:/i.test(errorText)) {
@@ -1819,3 +1875,618 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 TEST CASES", () => {
         return `Invoice page/view mở được qua Storefront cho order ${ASM7X_QA_ORDER_NUMBER}.`; }, {
         guest: false
     })); });
+
+// ============================================================
+// ASM9 — DEFECT IDENTIFICATION & REPORTING (13 TEST CASES)
+// Author : 23130238 - Vũ Châu Hoài Phong
+// Defect IDs: DEF_Search_01-05 | DEF_Profile_01-04 | DEF_Order_01-04
+// Environment config: ./environment.ts
+// ============================================================
+
+// ── Hằng số URL cho DEF tests ────────────────────────────────
+const DEF_REGISTER_URL = new URL('customer/account/create/', BASE).toString();
+
+// ── Auto-login: thử login, nếu thất bại do demo reset → tự đăng ký lại ──
+async function asm7xAutoLogin(page) {
+    // Bước 1: thử login với tài khoản hiện tại
+    if (ASM7X_QA.email && ASM7X_QA.password) {
+        const login = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password);
+        if (login.ok) return { ok: true, registered: false };
+    } else {
+        return { ok: false, reason: 'Chưa cấu hình QA_EMAIL / QA_PASSWORD.' };
+    }
+
+    // Bước 2: login thất bại → demo đã reset → tự đăng ký lại
+    try {
+        await gotoStorefront(page, DEF_REGISTER_URL);
+        await page.waitForLoadState('domcontentloaded');
+
+        // Chọn tab Register nếu có
+        const tabReg = page.locator('#tab-register').first();
+        if (await tabReg.count()) await tabReg.click();
+        await page.waitForTimeout(400);
+
+        const form = page.locator('#form-validate-register, #form-validate').first();
+        const fill = async (sel, val) => {
+            const el = form.locator(sel).first();
+            if (await el.count()) await el.fill(val);
+        };
+        await fill('#firstname, [name="firstname"]', ASM7X_QA.firstName);
+        await fill('#lastname, [name="lastname"]', ASM7X_QA.lastName);
+        await fill('#email_address_register, #email_address, [name="email"]', ASM7X_QA.email);
+        await fill('#password_register, [name="password"]', ASM7X_QA.password);
+        await fill('#confirmation_register, [name="confirmation"]', ASM7X_QA.password);
+
+        const submitBtn = form.locator('button[type="submit"]').first();
+        if (await submitBtn.count()) {
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {}),
+                submitBtn.click()
+            ]);
+        }
+
+        // Bước 3: thử login lần 2 sau khi đã đăng ký
+        const loginAfterReg = await asm7xLoginWithCredentials(page, ASM7X_QA.email, ASM7X_QA.password);
+        if (loginAfterReg.ok) return { ok: true, registered: true };
+
+        const bodyAfterReg = await page.locator('body').innerText().catch(() => '');
+        const alreadyLoggedIn = /my account|account dashboard|hello,/i.test(bodyAfterReg);
+        if (alreadyLoggedIn) return { ok: true, registered: true };
+
+        return { ok: false, reason: `Đăng ký và đăng nhập đều thất bại. URL=${page.url()}` };
+    } catch (err) {
+        return { ok: false, reason: `Lỗi khi tự đăng ký: ${err.message}` };
+    }
+}
+
+// ── runDefSearch: helper cho defect Search (không cần login) ─
+function runDefSearch(id, cb) {
+    return async ({ page }, testInfo) => {
+        let status = 'PASSED'; let desc = ''; let failure = null;
+        try {
+            const result = await cb(page);
+            if (result && result.blocked) {
+                status = 'BLOCKED';
+                desc = `BLOCKED — ${result.reason}`;
+                testInfo.annotations.push({ type: 'Result', description: status });
+                testInfo.annotations.push({ type: 'Actual Result', description: desc });
+                asm7xWriteResult(id, status, desc);
+                test.skip(true, desc);
+                return;
+            }
+            desc = typeof result === 'string' ? result : `PASSED — ${id} hoàn tất.`;
+        } catch (err) {
+            failure = err;
+            status = 'FAILED';
+            desc = `FAILED — ${err.message}`;
+        }
+        testInfo.annotations.push({ type: 'Result', description: status });
+        testInfo.annotations.push({ type: 'Actual Result', description: desc });
+        asm7xWriteResult(id, status, desc);
+        if (failure) throw failure;
+    };
+}
+
+// ── runDefAuth: helper cho defect cần đăng nhập (auto-register on demo reset) ─
+function runDefAuth(id, cb) {
+    return async ({ page, browser }, testInfo) => {
+        let status = 'PASSED'; let desc = ''; let failure = null;
+        try {
+            // Đảm bảo đăng nhập (auto-register nếu demo đã reset)
+            const auth = await asm7xAutoLogin(page);
+            if (!auth.ok) {
+                status = 'BLOCKED';
+                desc = `BLOCKED — Không thể đăng nhập/đăng ký QA: ${auth.reason}`;
+                testInfo.annotations.push({ type: 'Result', description: status });
+                testInfo.annotations.push({ type: 'Actual Result', description: desc });
+                asm7xWriteResult(id, status, desc);
+                test.skip(true, desc);
+                return;
+            }
+            const result = await cb(page, browser);
+            if (result && result.blocked) {
+                status = 'BLOCKED';
+                desc = `BLOCKED — ${result.reason}`;
+                testInfo.annotations.push({ type: 'Result', description: status });
+                testInfo.annotations.push({ type: 'Actual Result', description: desc });
+                asm7xWriteResult(id, status, desc);
+                test.skip(true, desc);
+                return;
+            }
+            desc = typeof result === 'string' ? result : `PASSED — ${id} hoàn tất.`;
+        } catch (err) {
+            failure = err;
+            status = 'FAILED';
+            desc = `FAILED — ${err.message}`;
+        }
+        testInfo.annotations.push({ type: 'Result', description: status });
+        testInfo.annotations.push({ type: 'Actual Result', description: desc });
+        asm7xWriteResult(id, status, desc);
+        if (failure) throw failure;
+    };
+}
+
+test.describe("DEFECT — Search & Faceted Filters (5 cases)", () => {
+    test.describe.configure({ mode: "default" });
+
+    // DEF_Search_01 ─ State Management
+    // Thay đổi sort order khi đang ở trang 2 phải reset về trang 1.
+    // Defect tiềm ẩn: p=2 vẫn giữ nguyên sau khi đổi sort → kết quả không nhất quán.
+    test("DEF_Search_01 - Pagination không reset khi đổi sort ở trang 2", async ({ page }, testInfo) => {
+        await gotoStorefront(page, `${ASM7X_FASHION_URL}?p=2`);
+        await settle(page);
+
+        const body2 = await page.locator("body").innerText();
+        const onPage2 = /13\s*[-–]\s*24\s+of/i.test(body2);
+        if (!onPage2) {
+            testInfo.annotations.push({ type: "Result", description: "BLOCKED" });
+            testInfo.annotations.push({ type: "Actual Result", description: "BLOCKED — Trang 2 không tải được hoặc tổng sản phẩm < 13." });
+            asm7xWriteResult("DEF_Search_01", "BLOCKED", "Trang 2 không tải được hoặc tổng sản phẩm < 13.");
+            test.skip(true, "BLOCKED — Trang 2 không tải được.");
+            return;
+        }
+
+        const sorter = page.locator("#toolbar-sortby:visible, #sorter:visible").first();
+        if (!await sorter.count()) {
+            testInfo.annotations.push({ type: "Result", description: "BLOCKED" });
+            testInfo.annotations.push({ type: "Actual Result", description: "BLOCKED — Không tìm thấy dropdown sort." });
+            asm7xWriteResult("DEF_Search_01", "BLOCKED", "Không tìm thấy dropdown sort.");
+            test.skip(true, "BLOCKED — Không tìm thấy dropdown sort.");
+            return;
+        }
+
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+            sorter.selectOption({ label: "Price" })
+        ]).catch(() => {});
+        await settle(page);
+
+        const pParam = new URL(page.url()).searchParams.get("p");
+        const defectFound = pParam !== null && pParam !== "1";
+        const status = defectFound ? "FAILED" : "PASSED";
+        const desc = defectFound
+            ? `DEFECT — Hệ thống giữ p=${pParam} sau khi đổi sort, trang 2 với sort mới dẫn đến kết quả không nhất quán. URL=${page.url()}`
+            : `PASSED — Hệ thống đã reset về trang 1 (p=${pParam ?? "null"}) khi đổi sort. URL=${page.url()}`;
+
+        testInfo.annotations.push({ type: "Result", description: status });
+        testInfo.annotations.push({ type: "Actual Result", description: desc });
+        asm7xWriteResult("DEF_Search_01", status, desc);
+        expect(pParam === null || pParam === "1", `[DEF] ${desc}`).toBeTruthy();
+    });
+
+    // DEF_Search_02 ─ Input Validation / Boundary Value
+    // Truyền giá âm qua URL param price để bypass frontend validation.
+    test("DEF_Search_02 - URL param price âm bypass frontend filter", async ({ page }, testInfo) => {
+        await gotoStorefront(page, `${ASM7X_FASHION_URL}?price=-100-50`);
+        await settle(page);
+
+        const priceParam = new URL(page.url()).searchParams.get("price");
+        const products = await getProducts(page);
+        const bodyText = await page.locator("body").innerText();
+        const serverRejected = /400|bad request|no results|error/i.test(bodyText);
+
+        const defectFound = priceParam === "-100-50" && products.length > 0 && !serverRejected;
+        const status = defectFound ? "FAILED" : "PASSED";
+        const desc = defectFound
+            ? `DEFECT — Server chấp nhận price=-100-50 và trả về ${products.length} sản phẩm, không validate giá âm trong URL param.`
+            : `PASSED — Server từ chối hoặc không trả sản phẩm với price âm. priceParam=${priceParam}; products=${products.length}; serverRejected=${serverRejected}`;
+
+        testInfo.annotations.push({ type: "Result", description: status });
+        testInfo.annotations.push({ type: "Actual Result", description: desc });
+        asm7xWriteResult("DEF_Search_02", status, desc);
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+    });
+
+    // DEF_Search_03 ─ Business Logic / Integration
+    // Kết hợp tìm kiếm + filter giá + sort: sản phẩm ngoài khoảng giá không được hiển thị.
+    test("DEF_Search_03 - Kết hợp search+filter giá+sort trả sản phẩm ngoài khoảng giá", async ({ page }, testInfo) => {
+        await openHome(page);
+        const box = searchBox(page);
+        await box.click();
+        await box.fill("Shirt");
+        await pressEnterAndWait(page, box);
+
+        const searchUrl = new URL(page.url());
+        searchUrl.searchParams.set("price", "20-50");
+        await gotoStorefront(page, searchUrl.toString());
+        await settle(page);
+
+        await chooseSort(page, "Price").catch(() => {});
+        await setSortDirection(page, "asc").catch(() => {});
+
+        const products = await getProducts(page);
+        if (products.length === 0) {
+            const actual = "BLOCKED — Không có sản phẩm Shirt trong khoảng $20-$50.";
+            testInfo.annotations.push({ type: "Result", description: "BLOCKED" });
+            testInfo.annotations.push({ type: "Actual Result", description: actual });
+            asm7xWriteResult("DEF_Search_03", "BLOCKED", actual);
+            test.skip(true, actual);
+            return;
+        }
+
+        const outOfRange = products.filter(p => Number.isFinite(p.price) && (p.price < 20 || p.price > 50));
+        const defectFound = outOfRange.length > 0;
+        const status = defectFound ? "FAILED" : "PASSED";
+        const desc = defectFound
+            ? `DEFECT — ${outOfRange.length} sản phẩm ngoài $20-$50 vẫn xuất hiện: ${JSON.stringify(outOfRange.map(p => ({ name: p.name, price: p.price })))}`
+            : `PASSED — Tất cả ${products.length} sản phẩm trong khoảng $20-$50. Prices: ${products.map(p => p.price).join(", ")}`;
+
+        testInfo.annotations.push({ type: "Result", description: status });
+        testInfo.annotations.push({ type: "Actual Result", description: desc });
+        asm7xWriteResult("DEF_Search_03", status, desc);
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+    });
+
+    // DEF_Search_04 ─ Input Validation
+    // Từ khóa chứa ký tự Unicode / emoji không được gây lỗi server 500.
+    test("DEF_Search_04 - Từ khóa Unicode/emoji không gây lỗi server 500", async ({ page }, testInfo) => {
+        const payloads = ["áéíóú", "日本語", "🛍️👗", "Ñoño"];
+        const results = [];
+
+        for (const kw of payloads) {
+            await openHome(page);
+            const box = searchBox(page);
+            await box.click();
+            await box.fill(kw);
+            const response = await pressEnterAndWait(page, box).catch(() => null);
+            const httpStatus = response ? response.status() : 0;
+            const bodyText = await page.locator("body").innerText().catch(() => "");
+            const crashed = /500|Internal Server Error|Fatal error/i.test(bodyText);
+            results.push({ keyword: kw, httpStatus, crashed });
+        }
+
+        const defects = results.filter(r => r.httpStatus >= 500 || r.crashed);
+        const defectFound = defects.length > 0;
+        const status = defectFound ? "FAILED" : "PASSED";
+        const desc = defectFound
+            ? `DEFECT — Server lỗi 500 / crash với ký tự đặc biệt: ${JSON.stringify(defects)}`
+            : `PASSED — Server xử lý ổn tất cả Unicode payloads: ${JSON.stringify(results.map(r => ({ kw: r.keyword, status: r.httpStatus })))}`;
+
+        testInfo.annotations.push({ type: "Result", description: status });
+        testInfo.annotations.push({ type: "Actual Result", description: desc });
+        asm7xWriteResult("DEF_Search_04", status, desc);
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+    });
+
+    // DEF_Search_05 ─ State Management
+    // Nhấn Back sau khi điều hướng từ trang có filter → phải quay về đúng URL filter.
+    test("DEF_Search_05 - Browser Back khôi phục đúng filter state", async ({ page }, testInfo) => {
+        await gotoStorefront(page, `${ASM7X_FASHION_URL}?price=20-50`);
+        await settle(page);
+        const urlFiltered = page.url();
+
+        await gotoStorefront(page, `${BASE}electronics/`);
+        await settle(page);
+
+        await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
+        await settle(page);
+        const urlAfterBack = page.url();
+
+        const backPreservesFilter = urlAfterBack.includes("price=20-50");
+        const defectFound = !backPreservesFilter;
+        const status = defectFound ? "FAILED" : "PASSED";
+        const desc = defectFound
+            ? `DEFECT — Browser Back không khôi phục URL filter. Expected URL chứa price=20-50; Actual=${urlAfterBack}`
+            : `PASSED — Browser Back khôi phục đúng filter state. URL=${urlAfterBack}`;
+
+        testInfo.annotations.push({ type: "Result", description: status });
+        testInfo.annotations.push({ type: "Actual Result", description: desc });
+        asm7xWriteResult("DEF_Search_05", status, desc);
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+    });
+});
+
+test.describe("DEFECT — Profile & Address Book (4 cases)", () => {
+    test.describe.configure({ mode: "default" });
+    const runDef = (id, cb, opts = {}) => async ({ page }, testInfo) => {
+        await asm7xExecute(testInfo, page, id, () => cb(page), opts);
+    };
+
+    // DEF_Profile_01 ─ Security / Input Validation
+    // SQL injection payload trong First Name không được gây lỗi DB / thực thi.
+    test("DEF_Profile_01 - SQL Injection trong First Name không gây lỗi server", runDef("DEF_Profile_01", async page => {
+        await asm7xOpenProfile(page);
+        const first = await asm7xField(page, "firstname");
+        if (!first) return { blocked: true, reason: "Không tìm thấy First Name field." };
+
+        const original = await first.inputValue();
+        const sqlPayload = "' OR '1'='1";
+
+        try {
+            await first.fill(sqlPayload);
+            await asm7xSubmitProfile(page, first, false).catch(() => {});
+            await page.waitForTimeout(500);
+
+            const bodyText = await page.locator("body").innerText().catch(() => "");
+            const serverError = /500|SQL syntax|SQLSTATE|database error|Fatal error/i.test(bodyText);
+            const payloadReflected = bodyText.includes(sqlPayload) && !/blocked|rejected|invalid/i.test(bodyText);
+
+            if (serverError) return `DEFECT — SQL payload gây lỗi server: ${bodyText.slice(0, 300)}`;
+            if (payloadReflected) return `DEFECT — SQL payload được lưu và phản chiếu lên UI mà không sanitize.`;
+            return `PASSED — Server xử lý đúng SQL injection payload; không lỗi DB; payload=${sqlPayload}`;
+        } finally {
+            await asm7xGo(page, ASM7X_PROFILE_URL);
+            const f = await asm7xField(page, "firstname");
+            if (f) { await f.fill(original); await asm7xSubmitProfile(page, f, true).catch(() => {}); }
+        }
+    }));
+
+    // DEF_Profile_02 ─ Business Logic
+    // Chỉ có đúng 1 địa chỉ được đánh dấu Default Shipping tại một thời điểm.
+    test("DEF_Profile_02 - Chỉ 1 địa chỉ Default Shipping tồn tại cùng lúc", runDef("DEF_Profile_02", async page => {
+        const token1 = asm7xToken("DEF1");
+        if (!await asm7xOpenNewAddress(page)) return { blocked: true, reason: "Không mở được form địa chỉ." };
+        await asm7xFillAddress(page, { street: `${ASM7X_QA.street} ${token1}` });
+        if (!await asm7xSetDefault(page, "shipping")) return { blocked: true, reason: "UI không có checkbox Default Shipping." };
+        expect(await asm7xSave(page)).toBeTruthy();
+
+        const token2 = asm7xToken("DEF2");
+        if (!await asm7xOpenNewAddress(page)) return { blocked: true, reason: "Không mở được form địa chỉ lần 2." };
+        await asm7xFillAddress(page, { street: `${ASM7X_QA.street} ${token2}` });
+        if (!await asm7xSetDefault(page, "shipping")) return { blocked: true, reason: "UI không có checkbox Default Shipping lần 2." };
+        expect(await asm7xSave(page)).toBeTruthy();
+
+        await asm7xOpenAddressBook(page);
+        const items = await page.locator("li.item, .address-item, li").all();
+        let defaultCount = 0;
+        for (const item of items) {
+            const text = await item.innerText().catch(() => "");
+            if (/default shipping|primary shipping/i.test(text)) defaultCount++;
+        }
+
+        await asm7xDeleteAddress(page, token1).catch(() => {});
+        await asm7xDeleteAddress(page, token2).catch(() => {});
+
+        const defectFound = defaultCount > 1;
+        const desc = defectFound
+            ? `DEFECT — Có ${defaultCount} địa chỉ cùng được đánh dấu Default Shipping; chỉ được phép có 1.`
+            : `PASSED — Chỉ có ${defaultCount} địa chỉ Default Shipping; địa chỉ cũ đã bị bỏ nhãn.`;
+
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+        return desc;
+    }));
+
+    // DEF_Profile_03 ─ Security / XSS
+    // XSS payload trong First Name không được render thành HTML thực thi.
+    test("DEF_Profile_03 - XSS payload trong First Name không được thực thi", runDef("DEF_Profile_03", async page => {
+        await asm7xOpenProfile(page);
+        const first = await asm7xField(page, "firstname");
+        if (!first) return { blocked: true, reason: "Không tìm thấy First Name." };
+
+        const original = await first.inputValue();
+        const xssPayload = "<img src=x onerror=alert('XSS_DEF03')>";
+        let alertFired = false;
+        page.on("dialog", async d => { alertFired = true; await d.dismiss(); });
+
+        try {
+            await first.fill(xssPayload);
+            await asm7xSubmitProfile(page, first, false).catch(() => {});
+            await page.waitForTimeout(1000);
+
+            const pageContent = await page.content();
+            const rawTagInHtml = pageContent.includes("<img src=x onerror=");
+
+            if (alertFired) return `DEFECT — XSS alert đã được thực thi! Payload lưu vào First Name và kích hoạt onerror.`;
+            if (rawTagInHtml) return `DEFECT — XSS payload phản chiếu dưới dạng raw HTML tag, có thể thực thi trong context khác.`;
+            return `PASSED — XSS payload bị encode/sanitize; alert không kích hoạt; raw tag không xuất hiện trong HTML.`;
+        } finally {
+            await asm7xGo(page, ASM7X_PROFILE_URL);
+            const f = await asm7xField(page, "firstname");
+            if (f) { await f.fill(original); await asm7xSubmitProfile(page, f, true).catch(() => {}); }
+        }
+    }));
+
+    // DEF_Profile_04 ─ Business Logic / Boundary Value
+    // Postal code US (5 chữ số) nhập vào nhưng country là Vietnam → phải có validation.
+    test("DEF_Profile_04 - Postal code US nhưng country Vietnam phải được validate", runDef("DEF_Profile_04", async page => {
+        const token = asm7xToken("MISMATCH");
+        if (!await asm7xOpenNewAddress(page)) return { blocked: true, reason: "Không mở được form địa chỉ." };
+
+        await asm7xFillAddress(page, { street: `${ASM7X_QA.street} ${token}`, postcode: "90210" });
+
+        const country = await asm7xField(page, "country");
+        let changedCountry = false;
+        if (country) {
+            const opts = await country.locator("option").evaluateAll(els =>
+                els.map(x => ({ value: x.value, text: (x.textContent || "").trim() })).filter(x => x.value)
+            );
+            const vn = opts.find(x => /vietnam|viet nam/i.test(x.text));
+            if (vn) { await country.selectOption(vn.value); await page.waitForTimeout(500); changedCountry = true; }
+        }
+
+        if (!changedCountry) return { blocked: true, reason: "Storefront không có tùy chọn Vietnam trong dropdown country." };
+
+        const zip = await asm7xField(page, "postcode");
+        const zipInvalid = zip ? await asm7xInvalid(zip) : false;
+        const outcome = zipInvalid
+            ? { validation: true, saved: false }
+            : await asm7xSubmitAddressForValidation(page, zip || (await asm7xField(page, "street")), token);
+
+        if (outcome.saved) await asm7xDeleteAddress(page, token).catch(() => {});
+
+        const desc = outcome.validation
+            ? `PASSED — Postal "90210" không khớp country Vietnam bị validation từ chối.`
+            : outcome.saved
+                ? `DEFECT — Hệ thống lưu địa chỉ Vietnam + postal "90210" mà không validate định dạng theo quốc gia.`
+                : `PASSED — Form không lưu được với mismatch country-postal.`;
+
+        // DEF_Profile_04: Xác nhận defect hệ thống không validate postcode theo quốc gia
+        if (outcome.saved && !outcome.validation) {
+            testInfo.annotations.push({ type: 'Defect Confirmed', description: 'Hệ thống chấp nhận mã zip US 90210 cho quốc gia Vietnam' });
+        }
+        return desc;
+    }));
+});
+
+test.describe("DEFECT — Order Placement & Invoice (4 cases)", () => {
+    test.describe.configure({ mode: "default" });
+    const runDef = (id, cb, opts = {}) => async ({ page, browser }, testInfo) => {
+        await asm7xExecute(testInfo, page, id, () => cb(page, browser), { guest: true, ...opts });
+    };
+
+    // DEF_Order_01 ─ State Management / Integration
+    // Giỏ hàng guest phải được merge vào tài khoản sau khi đăng nhập.
+    test("DEF_Order_01 - Giỏ hàng guest được merge khi đăng nhập tài khoản", runDef("DEF_Order_01", async (page, browser) => {
+        if (!ASM7X_QA.email || !ASM7X_QA.password) {
+            return { blocked: true, reason: "Chưa khai báo QA_EMAIL/QA_PASSWORD." };
+        }
+
+        const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, ignoreHTTPSErrors: true });
+        try {
+            const guestPage = await context.newPage();
+            const guestAdd = await asm7xAddToCart(guestPage, ASM7X_PRODUCT_TWO, 1);
+            if (!guestAdd.ok) return { blocked: true, reason: `Guest không thêm được sản phẩm: ${guestAdd.reason}` };
+
+            await gotoStorefront(guestPage, ASM7X_LOGIN_URL);
+            let login = await asm7xLoginWithCredentials(guestPage, ASM7X_QA.email, ASM7X_QA.password);
+            if (!login.ok) {
+                await asm7xAutoRegister(guestPage);
+                login = await asm7xLoginWithCredentials(guestPage, ASM7X_QA.email, ASM7X_QA.password);
+            }
+            if (!login.ok) return { blocked: true, reason: `Đăng nhập thất bại: ${login.reason}` };
+
+            await gotoStorefront(guestPage, ASM7X_CART_URL);
+            const bodyAfterLogin = await guestPage.locator("body").innerText();
+            const cartMerged = bodyAfterLogin.toLowerCase().includes(ASM7X_PRODUCT_TWO.toLowerCase());
+
+            const desc = cartMerged
+                ? `PASSED — Giỏ hàng guest được merge sau đăng nhập; ${ASM7X_PRODUCT_TWO} vẫn còn trong cart.`
+                : `DEFECT — Giỏ hàng guest bị mất sau đăng nhập; ${ASM7X_PRODUCT_TWO} không còn trong cart sau khi login.`;
+
+            expect(cartMerged, `[DEF] ${desc}`).toBeTruthy();
+            return desc;
+        } finally {
+            await context.close();
+        }
+    }));
+
+    // DEF_Order_02 ─ Boundary Value / Business Logic
+    // Thêm số lượng cực lớn (9999) vào giỏ → server không được trả lỗi 500.
+    test("DEF_Order_02 - Số lượng cực lớn (9999) không gây lỗi server 500", runDef("DEF_Order_02", async page => {
+        const reset = await asm7xResetCart(page);
+        if (!reset.ok) return { blocked: true, reason: reset.reason };
+
+        if (!await asm7xOpenProduct(page, ASM7X_PRODUCT_ONE)) {
+            return { blocked: true, reason: `Không tìm thấy ${ASM7X_PRODUCT_ONE}.` };
+        }
+        await asm7xChooseProductOptions(page);
+
+        const qty = await asm7xField(page, "quantity");
+        if (qty) await qty.fill("9999");
+
+        const addBtn = await asm7xFind(page, ['button[title*="Add to Cart"]', 'button:has-text("Add to Cart")']);
+        if (!addBtn) return { blocked: true, reason: "Không có nút Add to Cart." };
+
+        await addBtn.click().catch(() => {});
+        await page.waitForTimeout(4000);
+
+        const bodyText = await page.locator("body").innerText().catch(() => "");
+        const serverError = /500|Internal Server Error|Fatal error/i.test(bodyText);
+        const stockError = /not available|out of stock|maximum.*qty|requested qty/i.test(bodyText);
+
+        await gotoStorefront(page, ASM7X_CART_URL);
+        const qtyInCart = await page.locator('input[name*="[qty]"]:visible, input.qty:visible').first().inputValue().catch(() => "0");
+
+        const defectFound = serverError;
+        const desc = serverError
+            ? `DEFECT — Server trả lỗi 500 khi thêm qty=9999 vào giỏ.`
+            : stockError
+                ? `PASSED — Hệ thống thông báo giới hạn tồn kho; qty trong cart=${qtyInCart}.`
+                : `PASSED — Hệ thống xử lý qty=9999 không lỗi server; qty trong cart=${qtyInCart}.`;
+
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+        return desc;
+    }));
+
+    // DEF_Order_03 ─ Business Logic / State Management
+    // Nhập coupon vào cart → xóa item → coupon state và tổng tiền phải nhất quán.
+    test("DEF_Order_03 - Coupon state nhất quán sau khi xóa sản phẩm khỏi giỏ", runDef("DEF_Order_03", async page => {
+        const reset = await asm7xResetCart(page);
+        if (!reset.ok) return { blocked: true, reason: reset.reason };
+
+        const addA = await asm7xAddToCart(page, ASM7X_PRODUCT_ONE, 1);
+        if (!addA.ok) return { blocked: true, reason: addA.reason };
+        const addB = await asm7xAddToCart(page, ASM7X_PRODUCT_TWO, 1);
+        if (!addB.ok) return { blocked: true, reason: addB.reason };
+
+        await gotoStorefront(page, ASM7X_CART_URL);
+        const couponInput = page.locator('#coupon_code:visible, input[name="coupon_code"]:visible').first();
+        if (!await couponInput.count()) {
+            return { blocked: true, reason: "Storefront không hiển thị ô nhập Coupon Code." };
+        }
+
+        await couponInput.fill("TESTCOUPON2024");
+        const applyBtn = page.locator('button:has-text("Apply Coupon"):visible, #discount-coupon-form button[type="submit"]:visible').first();
+        if (!await applyBtn.count()) return { blocked: true, reason: "Không tìm thấy nút Apply Coupon." };
+
+        await applyBtn.click();
+        await page.waitForLoadState("domcontentloaded").catch(() => {});
+
+        const bodyAfterCoupon = await page.locator("body").innerText();
+        const couponApplied = /coupon.*applied|discount.*applied|your coupon code/i.test(bodyAfterCoupon);
+        const couponInvalid = /invalid coupon|coupon code.*not valid|does not apply/i.test(bodyAfterCoupon);
+
+        if (!couponApplied) {
+            return { blocked: true, reason: `Coupon TESTCOUPON2024 không tồn tại trên demo. couponInvalid=${couponInvalid}` };
+        }
+
+        // Lấy grand total trước khi xóa
+        const totalBefore = asm7xMoney(await page.locator(".grand-total .price, .totals-tax-summary .price, .order-total .price").first().innerText().catch(() => "0"));
+
+        // Xóa sản phẩm đầu
+        await asm7xRemoveCartItem(page, ASM7X_PRODUCT_ONE);
+        await gotoStorefront(page, ASM7X_CART_URL);
+
+        const bodyAfterRemove = await page.locator("body").innerText();
+        const couponStillActive = /coupon.*applied|discount.*applied/i.test(bodyAfterRemove);
+        const totalAfter = asm7xMoney(await page.locator(".grand-total .price, .totals-tax-summary .price, .order-total .price").first().innerText().catch(() => "0"));
+
+        // Nếu coupon còn active nhưng total không thay đổi sau xóa 1 sản phẩm → defect
+        const defectFound = couponStillActive && Number.isFinite(totalBefore) && Number.isFinite(totalAfter) && totalAfter >= totalBefore;
+        const desc = defectFound
+            ? `DEFECT — Coupon vẫn hiển thị applied nhưng tổng tiền không giảm sau xóa sản phẩm. Before=${totalBefore}; After=${totalAfter}.`
+            : `PASSED — Coupon state và tổng tiền nhất quán sau xóa sản phẩm. couponActive=${couponStillActive}; totalBefore=${totalBefore}; totalAfter=${totalAfter}.`;
+
+        return desc;
+    }));
+
+    // DEF_Order_04 ─ Business Logic / Data Consistency
+    // Giá trong giỏ hàng phải khớp với giá trên trang chi tiết sản phẩm (không có hidden markup).
+    test("DEF_Order_04 - Giá sản phẩm trong giỏ phải khớp giá trang chi tiết", runDef("DEF_Order_04", async page => {
+        const reset = await asm7xResetCart(page);
+        if (!reset.ok) return { blocked: true, reason: reset.reason };
+
+        if (!await asm7xOpenProduct(page, ASM7X_PRODUCT_ONE)) {
+            return { blocked: true, reason: `Không tìm thấy ${ASM7X_PRODUCT_ONE}.` };
+        }
+        await asm7xChooseProductOptions(page);
+
+        const priceEl = await asm7xFind(page, [".special-price .price", ".price-box .price", ".product-info .price", ".price"]);
+        if (!priceEl) return { blocked: true, reason: "Không đọc được giá trên trang chi tiết." };
+
+        const detailPriceText = await priceEl.innerText();
+        const detailPrice = asm7xMoney(detailPriceText);
+        if (!Number.isFinite(detailPrice)) return { blocked: true, reason: `Không parse được giá: "${detailPriceText}"` };
+
+        const addBtn = await asm7xFind(page, ['button[title*="Add to Cart"]', 'button:has-text("Add to Cart")']);
+        if (!addBtn) return { blocked: true, reason: "Không có nút Add to Cart." };
+
+        await addBtn.click();
+        await page.waitForLoadState("domcontentloaded").catch(() => {});
+        await gotoStorefront(page, ASM7X_CART_URL);
+
+        const values = await asm7xCartValues(page, ASM7X_PRODUCT_ONE);
+        if (!values || !Number.isFinite(values.unitPrice)) {
+            return { blocked: true, reason: "Không đọc được đơn giá trong Cart." };
+        }
+
+        const priceDiff = Math.abs(values.unitPrice - detailPrice);
+        const defectFound = priceDiff > 0.01;
+        const desc = defectFound
+            ? `DEFECT — Giá không nhất quán: chi tiết sản phẩm=${detailPrice}, cart=${values.unitPrice}, chênh lệch=${priceDiff.toFixed(2)}`
+            : `PASSED — Giá nhất quán: chi tiết=${detailPrice}, cart=${values.unitPrice}.`;
+
+        expect(!defectFound, `[DEF] ${desc}`).toBeTruthy();
+        return desc;
+    }));
+});
