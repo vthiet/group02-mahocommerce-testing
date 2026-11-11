@@ -5,11 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
-    "test:cart": "playwright test tests/features/shopping-cart/specs",
-    "test:products": "playwright test tests/features/product-management/specs",
-    "test:promotions": "playwright test tests/features/promotion-management/specs",
-    "test:products:headed": "playwright test tests/features/product-management/specs --headed",
-    "test:cart:headed": "playwright test tests/features/shopping-cart/specs --headed",
+    "test:cart": "playwright test tests/23130314_VoVanThiet/shopping-cart/specs",
+    "test:products": "playwright test tests/23130314_VoVanThiet/product-management/specs",
+    "test:promotions": "playwright test tests/23130314_VoVanThiet/promotion-management/specs",
+    "test:products:headed": "playwright test tests/23130314_VoVanThiet/product-management/specs --headed",
+    "test:cart:headed": "playwright test tests/23130314_VoVanThiet/shopping-cart/specs --headed",
     "report": "playwright show-report"
   },
   "keywords": [],
