@@ -326,74 +326,6 @@ test.describe('Product Management - List Products', () => {
         await loginToAdmin(page);
         await goToProductGrid(page);
     });
-
-    test('PROD_MGT_Action_01: Thay đổi Attribute Set cho nhiều sản phẩm qua Mass Action', async ({ page }) => {
-        // Khởi tạo selector cho bảng Product Grid
-        const productRows = page.locator('#productGrid_table tbody tr').filter({ hasNot: page.locator('.empty-text') });
-        const checkboxes = productRows.locator('.massaction-checkbox');
-
-        // Đảm bảo có ít nhất 3 sản phẩm để test mass action
-        test.skip((await checkboxes.count()) < 3, 'Grid không có đủ ít nhất 3 sản phẩm để test Mass Action');
-
-        // 1. Lưu lại ID của 3 sản phẩm đầu tiên vào mảng để check data sau khi update
-        const targetIds: string[] = [];
-        for (let i = 0; i < 3; i++) {
-            // Cột ID của Magento Grid thường nằm ở vị trí số 2 (sau cột checkbox)
-            const id = await productRows.nth(i).locator('td:nth-child(2)').innerText();
-            targetIds.push(id.trim());
-        }
-
-        // 2. Tick chọn checkbox của 3 dòng đầu tiên
-        for (let i = 0; i < 3; i++) {
-            await checkboxes.nth(i).check();
-        }
-
-        // 3. Chọn action "Change Attribute Set"
-        const massActionSelect = page.locator('#productGrid_massaction-select');
-        await massActionSelect.selectOption('change_attribute_set');
-
-        // 4. Dropdown phụ chọn Attribute Set xuất hiện, chọn 'Electronics' (value="12")
-        const targetAttributeValue = '12';
-        const targetAttributeName = 'Electronics';
-        const attributeSetSelect = page.locator('#productGrid_massaction-form-additional select[name="attribute_set"]');
-
-        await expect(attributeSetSelect).toBeVisible();
-        await attributeSetSelect.selectOption(targetAttributeValue);
-
-        // 5. Bấm Submit và đợi trang reload (mass action apply)
-        page.once('dialog', async dialog => {
-            // Xác nhận (Bấm OK) vào thông báo "Are you sure?"
-            await dialog.accept();
-        });
-
-        // Bấm Submit và đợi trang reload sau khi OK popup
-        await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-            page.getByRole('button', { name: 'Submit', exact: true }).click()
-        ]);
-
-        // 6. Verify thông báo thành công trên trang
-        const successMsg = page.locator('.success-msg');
-        await expect(successMsg).toBeVisible();
-        await expect(successMsg).toContainText(/3 product\(s\) were updated/i);
-
-        // ==============================================================
-        // 7. Verify kết quả cho TẤT CẢ 3 sản phẩm đã thao tác
-        // ==============================================================
-        for (const id of targetIds) {
-            // Dùng RegExp ^\s*id\s*$ để khớp chính xác ID, bỏ qua khoảng trắng
-            const targetRow = page.locator('#productGrid_table tbody tr').filter({
-                has: page.locator('td:nth-child(2)', { hasText: new RegExp(`^\\s*${id}\\s*$`) })
-            }).first();
-
-            // Cột Attribute Set của Product Grid mặc định thường nằm ở vị trí số 5 (ID=2, Name=3, Type=4, AttrSet=5, SKU=6).
-            // (Nếu bảng của bạn custom khác vị trí, hãy đổi số 5 thành số cột tương ứng)
-            const updatedAttributeCell = targetRow.locator('td:nth-child(5)');
-            await expect(updatedAttributeCell).toContainText(targetAttributeName);
-        }
-    });
-
-
 });
 
 test.describe('Product Management - Add Product Flow', () => {
@@ -555,8 +487,7 @@ test.describe('Product Management - Add Product Flow', () => {
         ).toBeVisible({ timeout: 15000 });
     });
 
-    //PROD_MGT_Create_06
-    test('PROD_MGT_Create_06: Thêm mới sản phẩm hợp lệ', async ({ page }) => {
+    test('PROD_MGT_Create_05: Thêm mới sản phẩm hợp lệ', async ({ page }) => {
         const uniqueSKU = `SM-${Date.now()}`;
 
         await page.getByRole('link', { name: 'General', exact: true }).click();
@@ -581,8 +512,8 @@ test.describe('Product Management - Add Product Flow', () => {
         await expect(page.getByText(/The product has been saved/i)).toBeVisible({ timeout: 15000 });
     });
 
-    //PROD_MGT_Create_07
-    test('PROD_MGT_Create_07: Hủy bỏ thao tác thêm mới (Back)', async ({ page }) => {
+
+    test('PROD_MGT_Create_06: Hủy bỏ thao tác thêm mới (Back)', async ({ page }) => {
         await page.getByRole('link', { name: 'General', exact: true }).click();
         await page.getByLabel('Name' ).fill('Quần Jean Hủy');
         await page.getByLabel('SKU' ).fill('QJ-01');
@@ -594,8 +525,8 @@ test.describe('Product Management - Add Product Flow', () => {
     });
 
 
-    //PROD_MGT_Create_08
-    test('PROD_MGT_Create_08: Kiểm tra giao diện form nhập liệu', async ({ page }) => {
+
+    test('PROD_MGT_Create_07: Kiểm tra giao diện form nhập liệu', async ({ page }) => {
 
         await expect(page.getByRole('heading', { level: 3 }).filter({ hasText: /New Product/i })).toBeVisible();
 
@@ -607,8 +538,8 @@ test.describe('Product Management - Add Product Flow', () => {
         await expect(page.getByRole('button', { name: 'Back', exact: false })).toBeVisible();
     });
 
-    //PROD_MGT_Create_09
-    test('PROD_MGT_Create_09: Kiểm tra hiển thị text thông báo lỗi UI', async ({ page }) => {
+
+    test('PROD_MGT_Create_08: Kiểm tra hiển thị text thông báo lỗi UI', async ({ page }) => {
         const nameField = page.getByLabel('Name', { exact: false });
 
         await nameField.fill('');
@@ -718,6 +649,75 @@ test.describe('Product Management - Update Product', () => {
 
         await expect(successMsg).toBeVisible();
     });
+
+    // PROD_MGT_Update_03
+    test('PROD_MGT_Update_03: Thay đổi Attribute Set cho nhiều sản phẩm qua Mass Action', async ({ page }) => {
+        // Khởi tạo selector cho bảng Product Grid
+        const productRows = page.locator('#productGrid_table tbody tr').filter({ hasNot: page.locator('.empty-text') });
+        const checkboxes = productRows.locator('.massaction-checkbox');
+
+        // Đảm bảo có ít nhất 3 sản phẩm để test mass action
+        test.skip((await checkboxes.count()) < 3, 'Grid không có đủ ít nhất 3 sản phẩm để test Mass Action');
+
+        // 1. Lưu lại ID của 3 sản phẩm đầu tiên vào mảng để check data sau khi update
+        const targetIds: string[] = [];
+        for (let i = 0; i < 3; i++) {
+            // Cột ID của Magento Grid thường nằm ở vị trí số 2 (sau cột checkbox)
+            const id = await productRows.nth(i).locator('td:nth-child(2)').innerText();
+            targetIds.push(id.trim());
+        }
+
+        // 2. Tick chọn checkbox của 3 dòng đầu tiên
+        for (let i = 0; i < 3; i++) {
+            await checkboxes.nth(i).check();
+        }
+
+        // 3. Chọn action "Change Attribute Set"
+        const massActionSelect = page.locator('#productGrid_massaction-select');
+        await massActionSelect.selectOption('change_attribute_set');
+
+        // 4. Dropdown phụ chọn Attribute Set xuất hiện, chọn 'Electronics' (value="12")
+        const targetAttributeValue = '12';
+        const targetAttributeName = 'Electronics';
+        const attributeSetSelect = page.locator('#productGrid_massaction-form-additional select[name="attribute_set"]');
+
+        await expect(attributeSetSelect).toBeVisible();
+        await attributeSetSelect.selectOption(targetAttributeValue);
+
+        // 5. Bấm Submit và đợi trang reload (mass action apply)
+        page.once('dialog', async dialog => {
+            // Xác nhận (Bấm OK) vào thông báo "Are you sure?"
+            await dialog.accept();
+        });
+
+        // Bấm Submit và đợi trang reload sau khi OK popup
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+            page.getByRole('button', { name: 'Submit', exact: true }).click()
+        ]);
+
+        // 6. Verify thông báo thành công trên trang
+        const successMsg = page.locator('.success-msg');
+        await expect(successMsg).toBeVisible();
+        await expect(successMsg).toContainText(/3 product\(s\) were updated/i);
+
+        // ==============================================================
+        // 7. Verify kết quả cho TẤT CẢ 3 sản phẩm đã thao tác
+        // ==============================================================
+        for (const id of targetIds) {
+            // Dùng RegExp ^\s*id\s*$ để khớp chính xác ID, bỏ qua khoảng trắng
+            const targetRow = page.locator('#productGrid_table tbody tr').filter({
+                has: page.locator('td:nth-child(2)', { hasText: new RegExp(`^\\s*${id}\\s*$`) })
+            }).first();
+
+            // Cột Attribute Set của Product Grid mặc định thường nằm ở vị trí số 5 (ID=2, Name=3, Type=4, AttrSet=5, SKU=6).
+            // (Nếu bảng của bạn custom khác vị trí, hãy đổi số 5 thành số cột tương ứng)
+            const updatedAttributeCell = targetRow.locator('td:nth-child(5)');
+            await expect(updatedAttributeCell).toContainText(targetAttributeName);
+        }
+    });
+
+
 });
 
 
