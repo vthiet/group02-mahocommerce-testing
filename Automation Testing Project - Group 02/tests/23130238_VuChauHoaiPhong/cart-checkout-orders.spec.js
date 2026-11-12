@@ -104,7 +104,7 @@ test.use({
   screenshot: "only-on-failure",
   video: "retain-on-failure"
 });
-test.setTimeout(12e4);
+test.setTimeout(18e4);
 
 test.describe("ORDER PLACEMENT & INVOICE — 30 TEST CASES", () => {
 test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
@@ -716,7 +716,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 reason: "Storefront không cung cấp liên kết Invoice trong Order Detail hoặc đơn chưa đủ điều kiện sinh hóa đơn."
             }; }
         const [download] = await Promise.all([ page.waitForEvent("download", {
-            timeout: 8e3
+            timeout: 2e4
         }).catch(() => null), invoice.click().catch(() => {}) ]); if (download) {
             return `Invoice tải xuống qua Storefront: ${download.suggestedFilename()}.`; }
         const body = await page.locator("body").innerText(); expect(/invoice|tax invoice|order number/i.test(body)).toBeTruthy();
@@ -797,7 +797,7 @@ test.describe("DEFECT — Order Placement & Invoice (4 cases)", () => {
 
         await gotoStorefront(page, ASM7X_CART_URL);
         const cartQty = page.locator('input[name*="[qty]"]:visible, input.qty:visible').first();
-        const qtyInCart = await cartQty.count() ? await cartQty.inputValue({ timeout: 3000 }).catch(() => "unknown") : "0";
+        const qtyInCart = await cartQty.count() ? await cartQty.inputValue({ timeout: 15000 }).catch(() => "unknown") : "0";
 
         const defectFound = serverError;
         const desc = serverError

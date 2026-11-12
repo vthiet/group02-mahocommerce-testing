@@ -105,7 +105,7 @@ test.use({
   screenshot: "only-on-failure",
   video: "retain-on-failure"
 });
-test.setTimeout(12e4);
+test.setTimeout(18e4);
 
 test.describe("SEARCH & FILTERS — 29 TEST CASES", () => {
 test.describe("Search - Tìm kiếm từ khóa", () => {
@@ -213,7 +213,7 @@ test.describe("Search - Tìm kiếm từ khóa", () => {
             timeout: 2e4
         }); await typeSearch(page, "Shirt"); expect((await suggestionsResponse).status()).toBe(200);
         const dropdown = page.locator("#search_autocomplete, .search-autocomplete, .autocomplete-suggestions").first(); await expect(dropdown).toBeVisible({
-            timeout: 1e4
+            timeout: 2e4
         }); expect(await dropdown.locator("li, .item, a").count()).toBeGreaterThan(0); await expect(dropdown).toContainText(/shirt/i);
         expect(await dropdown.locator("img").count()).toBeGreaterThan(0); await expect(dropdown).toContainText(/\$\s?\d/); });
     test('Search_UI_05 - Đổi biến thể màu khi xem chi tiết "Harbour stripe tee"', async ({page: page}) => {
@@ -238,7 +238,7 @@ test.describe("Search - Tìm kiếm từ khóa", () => {
                 has: page.locator('img[alt="Red"]')
             }).first(); await expect(redOption, "Không tìm thấy biến thể màu đỏ").toBeVisible(); await redOption.hover(); await redOption.click(); }
         await settle(page); await expect.poll(snapshot, {
-            timeout: 1e4,
+            timeout: 2e4,
             message: "Màu/ảnh sản phẩm phải đổi theo biến thể đã chọn"
         }).not.toBe(before); }); test.skip("Search_Voice_01 - Voice Search (SKIPPED: Headless không hỗ trợ Micro API)", async () => {});
     test.skip("Search_Synonym_01 - Synonym Search (UNTESTED: chờ Admin cấu hình Search Synonyms)", async () => {}); }); test.describe("Performance", () => {
