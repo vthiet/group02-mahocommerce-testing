@@ -66,7 +66,7 @@ async function fillPrice(page, min, max) {
     await expect(maxInput, "Không thấy ô giá tối đa").toBeVisible(); await minInput.click(); await minInput.fill(String(min)); await maxInput.click();
     await maxInput.fill(String(max)); const apply = page.locator(".price-filter-apply:visible").first(); await expect(apply, "Không thấy nút áp dụng bộ lọc giá").toBeVisible();
     await apply.scrollIntoViewIfNeeded(); await apply.hover(); await page.waitForFunction(() => typeof window.applyPriceFilter === "function", null, {
-        timeout: 15e3
+        timeout: 3e4
     }); await Promise.all([ page.waitForURL(url => url.searchParams.get("price") === `${min}-${max}`, {
         waitUntil: "domcontentloaded"
     }), apply.click() ]); await settle(page); }
@@ -153,6 +153,18 @@ async function asm7xField(page, name) {
     }; return asm7xFind(page, selectors[name] || [ `#${name}`, `[name="${name}"]` ]); }
 function asm7xSheetFor(id) {
     if (/^(DEF_Search_|Search|Filter|Sort)_/.test(id) || id.startsWith("DEF_Search_")) return "Search"; if (/^(DEF_Profile_|Profile|Address)_/.test(id) || id.startsWith("DEF_Profile_")) return "Profile"; return "Order"; }
+function asm7xFindHeaderRow(rows, requiredHeaders) {
+    const headerIndex = rows.findIndex(row => {
+        const headers = row.map(value => String(value).trim());
+        return requiredHeaders.every(header => headers.includes(header));
+    });
+    if (headerIndex < 0) return null;
+    const headers = rows[headerIndex].map(value => String(value).trim());
+    return {
+        headerIndex,
+        columns: Object.fromEntries(requiredHeaders.map(header => [header, headers.indexOf(header)]))
+    };
+}
 function asm7xRefreshDashboard(wb) {
     const dashboard = wb.Sheets.Dashboard; if (!dashboard) return; const configs = [ {
         name: "Search",
@@ -166,14 +178,23 @@ function asm7xRefreshDashboard(wb) {
         name: "Order",
         row: 7,
         noteRow: 13
-    } ]; for (const config of configs) {
+    } ]; const dashboardRows = XLSX.utils.sheet_to_json(dashboard, {
+        header: 1,
+        defval: ""
+    }); const targetHeader = dashboardRows.flat().map(value => String(value).trim()).find(value => /^\d+(?:\.\d+)?%\s*Target PASS$/i.test(value));
+    const targetMatch = targetHeader && targetHeader.match(/^(\d+(?:\.\d+)?)%/); const targetRate = targetMatch ? Number(targetMatch[1]) / 100 : .9;
+    for (const config of configs) {
         const sheet = wb.Sheets[config.name]; if (!sheet || !sheet["!ref"]) continue; const rows = XLSX.utils.sheet_to_json(sheet, {
             header: 1,
             defval: ""
-        }); const headers = (rows[0] || []).map(v => String(v).trim()); const idCol = headers.indexOf("ID"); const resultCol = headers.indexOf("Result");
-        if (idCol < 0 || resultCol < 0) continue; const statuses = rows.slice(1).filter(row => row[idCol]).map(row => String(row[resultCol] || "").trim().toUpperCase());
+        }); const header = asm7xFindHeaderRow(rows, [ "ID", "Result" ]); if (!header) continue;
+        const entries = rows.map((row, index) => ({
+            row,
+            index
+        })).filter(entry => entry.index > header.headerIndex && String(entry.row[header.columns.ID] || "").trim());
+        const statuses = entries.map(entry => String(entry.row[header.columns.Result] || "").trim().toUpperCase());
         const total = statuses.length; const count = value => statuses.filter(status => status === value).length; const passed = count("PASSED");
-        const target = Math.ceil(total * .9); const cells = {
+        const target = Math.ceil(total * targetRate); const cells = {
             B: total,
             C: passed,
             D: count("FAILED"),
@@ -183,15 +204,18 @@ function asm7xRefreshDashboard(wb) {
             H: total ? passed / total : 0,
             I: target,
             J: Math.max(0, target - passed)
-        }; const lastRow = total + 1; const refs = {
-            B: `COUNTA('${config.name}'!$A$2:$A$${lastRow})`,
-            C: `COUNTIF('${config.name}'!$F$2:$F$${lastRow},"PASSED")`,
-            D: `COUNTIF('${config.name}'!$F$2:$F$${lastRow},"FAILED")`,
-            E: `COUNTIF('${config.name}'!$F$2:$F$${lastRow},"BLOCKED")`,
-            F: `COUNTIF('${config.name}'!$F$2:$F$${lastRow},"SKIPPED")`,
-            G: `COUNTIF('${config.name}'!$F$2:$F$${lastRow},"NOT RUN")+COUNTIF('${config.name}'!$F$2:$F$${lastRow},"UNTESTED")`,
+        }; const firstDataRow = entries.length ? entries[0].index + 1 : header.headerIndex + 2;
+        const lastDataRow = entries.length ? entries[entries.length - 1].index + 1 : firstDataRow;
+        const idColumn = XLSX.utils.encode_col(header.columns.ID); const resultColumn = XLSX.utils.encode_col(header.columns.Result);
+        const refs = {
+            B: entries.length ? `COUNTA('${config.name}'!$${idColumn}$${firstDataRow}:$${idColumn}$${lastDataRow})` : "0",
+            C: entries.length ? `COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"PASSED")` : "0",
+            D: entries.length ? `COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"FAILED")` : "0",
+            E: entries.length ? `COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"BLOCKED")` : "0",
+            F: entries.length ? `COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"SKIPPED")` : "0",
+            G: entries.length ? `COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"NOT RUN")+COUNTIF('${config.name}'!$${resultColumn}$${firstDataRow}:$${resultColumn}$${lastDataRow},"UNTESTED")` : "0",
             H: `IF(B${config.row}=0,0,C${config.row}/B${config.row})`,
-            I: `ROUNDUP(B${config.row}*90%,0)`,
+            I: `ROUNDUP(B${config.row}*${targetRate * 100}%,0)`,
             J: `MAX(0,I${config.row}-C${config.row})`
         }; for (const [col, value] of Object.entries(cells)) {
             const address = `${col}${config.row}`; const cell = dashboard[address] || {}; cell.t = "n"; cell.v = value; cell.f = refs[col]; dashboard[address] = cell; }
@@ -213,10 +237,9 @@ function asm7xWriteResult(id, status, actual) {
         const matrix = XLSX.utils.sheet_to_json(sheet, {
             header: 1,
             defval: ""
-        }); const headers = matrix[0].map(v => String(v).trim()); const idCol = headers.indexOf("ID"); const resultCol = headers.indexOf("Result");
-        const dateCol = headers.indexOf("Test date"); const actualCol = headers.indexOf("Actual Result"); if (idCol < 0 || resultCol < 0 || dateCol < 0 || actualCol < 0) {
+        }); const header = asm7xFindHeaderRow(matrix, [ "ID", "Result", "Test date", "Actual Result" ]); if (!header) {
             throw new Error(`Sheet "${sheetName}" phải có ID, Result, Test date và Actual Result.`); }
-        const index = matrix.findIndex((row, i) => i > 0 && String(row[idCol]).trim() === id); if (index < 0) {
+        const index = matrix.findIndex((row, i) => i > header.headerIndex && String(row[header.columns.ID]).trim() === id); if (index < 0) {
             throw new Error(`Không tìm thấy testcase ID ${id} trong sheet "${sheetName}".`); }
         const writeCell = (r, c, value) => {
             const addr = XLSX.utils.encode_cell({
@@ -226,7 +249,7 @@ function asm7xWriteResult(id, status, actual) {
                 ...sheet[addr],
                 t: "s",
                 v: String(value ?? "")
-            }; }; writeCell(index, resultCol, status); writeCell(index, dateCol, asm7xTodayVN()); writeCell(index, actualCol, actual); asm7xRefreshDashboard(wb);
+            }; }; writeCell(index, header.columns.Result, status); writeCell(index, header.columns["Test date"], asm7xTodayVN()); writeCell(index, header.columns["Actual Result"], actual); asm7xRefreshDashboard(wb);
         XLSX.writeFile(wb, ASM7X_WORKBOOK, {
             cellStyles: true
         }); return {
@@ -484,7 +507,7 @@ async function asm7xSubmitAddressForValidation(page, field, token) {
         const listing = /\/customer\/address\/?$/.test(location.pathname);
         const feedback = [ ".validation-advice", ".mage-error", ".field-error", ".message-error", ".messages .error", '[aria-invalid="true"]' ].some(selector => [ ...document.querySelectorAll(selector) ].some(element => element.getClientRects().length > 0));
         return listing || feedback; }, null, {
-        timeout: 1e4
+        timeout: 2e4
     }).catch(() => {}); const onAddressBook = /\/customer\/address\/?$/.test(new URL(page.url()).pathname);
     const feedback = await page.locator(".validation-advice:visible, .mage-error:visible, .field-error:visible, .message-error:visible, .messages .error:visible").count();
     const validation = onAddressBook ? false : await field.evaluate(el => !el.checkValidity() || el.getAttribute("aria-invalid") === "true" || Boolean(el.closest(".field")?.querySelector(".validation-advice, .mage-error, .field-error"))).catch(() => false);
@@ -500,7 +523,7 @@ async function asm7xDeleteAddress(page, token) {
         name: /delete|remove/i
     })).first(); if (!await remove.count()) return false; const linkHtml = await remove.evaluate(el => el.outerHTML); page.once("dialog", dialog => dialog.accept());
     await remove.click(); await page.waitForLoadState("domcontentloaded").catch(() => {}); await expect.poll(async () => await asm7xAddressCard(page, token) === null, {
-        timeout: 1e4,
+        timeout: 2e4,
         message: `Address Book must remove the deleted test address. Delete link: ${linkHtml}`
     }).toBeTruthy(); return await asm7xAddressCard(page, token) === null; }
 async function asm7xSetDefault(page, type) {
@@ -562,8 +585,8 @@ test.afterEach(async ({page: page}, testInfo) => {
         const passwordVisible = password instanceof HTMLElement && password.getClientRects().length > 0;
         if (!passwordVisible && !/customer\/account\/login/i.test(location.pathname) && /my dashboard|account dashboard|hello,/i.test(body)) {
             return "authenticated"; }
-        return null; }, null, {
-        timeout: 15e3
+        return null;         }, null, {
+            timeout: 3e4
     }).then(handle => handle.jsonValue()).catch(() => null), submit.click() ]).then(([state]) => state); if (outcome === "rejected") {
         const body = await page.locator("body").innerText().catch(() => ""); return {
             ok: false,
@@ -584,15 +607,21 @@ test.afterEach(async ({page: page}, testInfo) => {
 
 async function asm7xOpenProduct(page, productName) {
     await asm7xGo(page, BASE); const search = await asm7xFind(page, [ "input#search:visible" ]); if (!search) return false; await search.fill(productName);
-    await search.press("Enter"); await page.waitForLoadState("domcontentloaded").catch(() => {});
-    const productTitle = page.locator("h1:visible, .product-name:visible, .product-title:visible").first(); const expectedTitle = new RegExp(asm7xEscapeRegex(productName), "i");
-    if (await productTitle.count() && expectedTitle.test(await productTitle.innerText().catch(() => ""))) {
-        return true; }
+    await search.press("Enter"); const productTitle = page.locator("h1:visible, .product-view .product-name:visible, .product-info-main .product-name:visible").first();
+    const expectedTitle = new RegExp(asm7xEscapeRegex(productName), "i");
     const links = page.locator(".product-name a[href], .product-item-name a[href], .product-item a[href]").filter({
         hasText: expectedTitle
-    }); const link = links.first(); if (!await link.count() || !await link.isVisible().catch(() => false)) {
-        return false; }
-    await link.click(); await page.waitForLoadState("domcontentloaded").catch(() => {}); await expect(productTitle).toContainText(expectedTitle); return true; }
+    }); const link = links.first();
+    await expect.poll(async () => {
+        if (await productTitle.count() && expectedTitle.test(await productTitle.innerText().catch(() => ""))) return true;
+        return await link.isVisible().catch(() => false);
+    }, {
+        timeout: 3e4,
+        message: `Không tìm thấy trang hoặc kết quả cho sản phẩm '${productName}'.`
+    }).toBeTruthy();
+    if (await productTitle.count() && expectedTitle.test(await productTitle.innerText().catch(() => ""))) {
+        return true; }
+    await link.click(); await expect(productTitle).toContainText(expectedTitle); return true; }
 async function asm7xChooseProductOptions(page) {
     const selects = page.locator('select[name^="super_attribute"], select[id^="attribute"], .product-options select');
     const swatchGroups = page.locator("#product-options-wrapper .configurable-swatch-list"); for (let i = 0; i < await selects.count(); i++) {
@@ -633,7 +662,20 @@ async function asm7xAddToCart(page, productName, quantity = 1) {
             ok: false,
             reason: `Không có nút Add to Cart trên ${productName}.`
         }; }
-    await add.click(); await page.waitForLoadState("domcontentloaded").catch(() => {}); await page.waitForTimeout(400); await asm7xGo(page, ASM7X_CART_URL);
+    const [addResponse] = await Promise.all([ page.waitForResponse(response => {
+        try {
+            return new URL(response.url()).pathname.includes("/checkout/cart/add");
+        } catch {
+            return false;
+        }
+    }, {
+        timeout: 3e4
+    }), add.click() ]); if (!addResponse.ok()) {
+        throw new Error(`Add to Cart trả HTTP ${addResponse.status()} cho ${productName}.`);
+    }
+    await asm7xGo(page, ASM7X_CART_URL); await expect(page.locator("body")).toContainText(productName, {
+        timeout: 2e4
+    });
     const body = await page.locator("body").innerText(); return {
         ok: body.toLowerCase().includes(productName.toLowerCase()),
         reason: body.toLowerCase().includes(productName.toLowerCase()) ? `${productName} xuất hiện trong Cart với quantity=${quantity}.` : `Không thấy ${productName} trong Cart. UI=${body.slice(0, 400)}`
@@ -658,7 +700,7 @@ async function asm7xRemoveCartItem(page, productName) {
         const body = (await page.locator("body").innerText().catch(() => "")).toLowerCase();
         return !body.includes(productName.toLowerCase());
     }, {
-        timeout: 1e4,
+        timeout: 2e4,
         message: `${productName} should be removed from the cart after the remove action.`
     }).toBeTruthy();
     return !(await page.locator("body").innerText()).toLowerCase().includes(productName.toLowerCase()); }

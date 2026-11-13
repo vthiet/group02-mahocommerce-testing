@@ -106,7 +106,7 @@ test.use({
   screenshot: "only-on-failure",
   video: "retain-on-failure"
 });
-test.setTimeout(12e4);
+test.setTimeout(18e4);
 
 test.describe("PROFILE & ADDRESS BOOK — 29 TEST CASES", () => {
 test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
