@@ -1,4 +1,4 @@
-const {
+import {
   test,
   expect,
   BASE,
@@ -97,7 +97,9 @@ const {
   asm7xAutoLogin,
   runDefSearch,
   runDefAuth
-} = require('./support.cjs');
+} from './support';
+import type { Page, Browser, TestInfo } from '@playwright/test';
+import type { CallbackResult } from './support';
 
 test.use({
   viewport: { width: 1366, height: 768 },
@@ -112,7 +114,7 @@ test.describe("PROFILE & ADDRESS BOOK — 29 TEST CASES", () => {
 test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
     test.describe.configure({
         mode: "default"
-    }); const run = (id, callback, options = {}) => async ({page: page}, testInfo) => {
+    }); const run = (id: string, callback: (page: Page) => CallbackResult | Promise<CallbackResult>, options: { guest?: boolean } = {}) => async ({page: page}: { page: Page }, testInfo: TestInfo) => {
         await asm7xExecute(testInfo, page, id, () => callback(page), options); };
     test("Profile_LoginPageOpen_01 - Mở trang đăng nhập khách hàng", run("Profile_LoginPageOpen_01", async page => {
         await asm7xGo(page, ASM7X_LOGIN_URL); const email = await asm7xField(page, "email"); const password = await asm7xField(page, "password");
@@ -144,8 +146,8 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
         guest: true
     })); test("Profile_LoginEmpty_05 - Bỏ trống email và password", run("Profile_LoginEmpty_05", async page => {
         await asm7xGo(page, ASM7X_LOGIN_URL); const email = await asm7xField(page, "email"); const password = await asm7xField(page, "password");
-        const submit = await asm7xFind(page, [ "#send2", 'button[type="submit"]', 'input[type="submit"]' ]); expect(email && password && submit).toBeTruthy(); await email.fill("");
-        await password.fill(""); await submit.click(); const invalid = await asm7xInvalid(email) || await asm7xInvalid(password);
+        const submit = await asm7xFind(page, [ "#send2", 'button[type="submit"]', 'input[type="submit"]' ]); expect(email && password && submit).toBeTruthy(); await email!.fill("");
+        await password!.fill(""); await submit!.click(); const invalid = await asm7xInvalid(email!) || await asm7xInvalid(password!);
         const body = (await page.locator("body").innerText()).toLowerCase(); expect(invalid || /required|enter.*email|password|cannot be empty/i.test(body)).toBeTruthy();
         expect(/customer\/account\/login/i.test(page.url()) || Boolean(await asm7xField(page, "password"))).toBeTruthy();
         return "Form không đăng nhập thành công khi email/password trống; validation hiển thị."; }, {
@@ -194,12 +196,12 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
             }; }
         const oldFirst = await first.inputValue(); const oldLast = await last.inputValue(); const newFirst = `QA${Date.now()}`; const newLast = `ASM7${Date.now()}`; try {
             await first.fill(newFirst); await last.fill(newLast); await asm7xSubmitProfile(page, first); await asm7xGo(page, ASM7X_PROFILE_URL);
-            const savedFirst = await asm7xField(page, "firstname"); const savedLast = await asm7xField(page, "lastname"); expect(await savedFirst.inputValue()).toBe(newFirst);
-            expect(await savedLast.inputValue()).toBe(newLast); return `First Name và Last Name lưu thành công: ${newFirst} ${newLast}.`; } finally {
+            const savedFirst = await asm7xField(page, "firstname"); const savedLast = await asm7xField(page, "lastname"); expect(await savedFirst!.inputValue()).toBe(newFirst);
+            expect(await savedLast!.inputValue()).toBe(newLast); return `First Name và Last Name lưu thành công: ${newFirst} ${newLast}.`; } finally {
             await asm7xGo(page, ASM7X_PROFILE_URL); const f = await asm7xField(page, "firstname"); const l = await asm7xField(page, "lastname"); if (f && l) {
                 await f.fill(oldFirst); await l.fill(oldLast); await asm7xSubmitProfile(page, f); await asm7xGo(page, ASM7X_PROFILE_URL);
                 const restoredFirst = await asm7xField(page, "firstname"); const restoredLast = await asm7xField(page, "lastname");
-                expect(await restoredFirst.inputValue()).toBe(oldFirst); expect(await restoredLast.inputValue()).toBe(oldLast); }
+                expect(await restoredFirst!.inputValue()).toBe(oldFirst); expect(await restoredLast!.inputValue()).toBe(oldLast); }
         }
     })); test("Profile_AccountInfoRequired_10 - Validation trường hồ sơ bắt buộc", run("Profile_AccountInfoRequired_10", async page => {
         await asm7xOpenProfile(page); const first = await asm7xField(page, "firstname"); if (!first) {
@@ -208,7 +210,7 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
                 reason: "Không tìm thấy First Name."
             }; }
         const original = await first.inputValue(); try {
-            expect(await first.evaluate(el => el.required || el.getAttribute("aria-required") === "true" || el.classList.contains("required-entry")), "First Name phải được đánh dấu bắt buộc theo validation của form.").toBeTruthy();
+            expect(await first.evaluate(el => (el as HTMLInputElement).required || el.getAttribute("aria-required") === "true" || el.classList.contains("required-entry")), "First Name phải được đánh dấu bắt buộc theo validation của form.").toBeTruthy();
             await first.fill(""); await asm7xSubmitProfile(page, first, false); const feedback = (await page.locator("body").innerText()).replace(/\s+/g, " ");
             expect(/First Name.{0,100}(required|length|invalid)|(required|length|invalid).{0,100}First Name/i.test(feedback), `Không thấy phản hồi validation cho First Name: ${feedback.slice(0, 500)}`).toBeTruthy();
             return "First Name trống bị validation của form từ chối."; } finally {
@@ -313,8 +315,8 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
         expect(await asm7xSelectCountry(page, "United States")).toBeTruthy(); const max = Number(await phone.getAttribute("maxlength")) || 15; const probes = [];
         for (const length of [ Math.max(1, max - 1), max, max + 1 ]) {
             await phone.fill("1".repeat(length)); const value = await phone.inputValue(); const validity = await phone.evaluate(el => ({
-                valid: el.checkValidity(),
-                message: el.validationMessage
+                valid: (el as HTMLInputElement).checkValidity(),
+                message: (el as HTMLInputElement).validationMessage
             })); expect(value.length, `UI phải trả lại kết quả cho phone length=${length}`).toBeGreaterThan(0); probes.push({
                 requestedLength: length,
                 actualLength: value.length,
@@ -334,7 +336,7 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
         await asm7xFillAddress(page, {
             street: `${ASM7X_QA.street} ${token}`,
             postcode: "90210"
-        }); const zip = await asm7xField(page, "postcode"); expect(zip).not.toBeNull(); expect(await asm7xInvalid(zip)).toBeFalsy(); expect(await asm7xSave(page)).toBeTruthy();
+        }); const zip = await asm7xField(page, "postcode"); expect(zip).not.toBeNull(); expect(await asm7xInvalid(zip!)).toBeFalsy(); expect(await asm7xSave(page)).toBeTruthy();
         expect(await asm7xAddressExists(page, token)).toBeTruthy(); return `ZIP 90210 được chấp nhận và địa chỉ ${token} được lưu.`; }));
     test("Address_PostalInvalid_19 - Postal Code sai định dạng", run("Address_PostalInvalid_19", async page => {
         const token = asm7xToken("ZIPBAD"); if (!await asm7xOpenNewAddress(page)) {
@@ -375,8 +377,8 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
             }; }
         expect(await asm7xSelectCountry(page, "United States")).toBeTruthy(); const probes = []; for (const length of [ 4, 5, 9, 10 ]) {
             await zip.fill("9".repeat(length)); const value = await zip.inputValue(); const validity = await zip.evaluate(el => ({
-                valid: el.checkValidity(),
-                message: el.validationMessage
+                valid: (el as HTMLInputElement).checkValidity(),
+                message: (el as HTMLInputElement).validationMessage
             })); expect(value.length, `UI phải trả lại kết quả cho postal length=${length}`).toBeGreaterThan(0); probes.push({
                 requestedLength: length,
                 actualLength: value.length,
@@ -447,7 +449,7 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
                 reason: "Không có trường City trong form sửa."
             }; }
         await city.fill("Los Angeles"); expect(await asm7xSave(page)).toBeTruthy(); await asm7xOpenAddressBook(page); const editedCard = await asm7xAddressCard(page, token);
-        expect(editedCard).not.toBeNull(); expect(await editedCard.innerText()).toContain("Los Angeles"); return `Địa chỉ ${token} đã cập nhật City=Los Angeles.`; }));
+        expect(editedCard).not.toBeNull(); expect(await editedCard!.innerText()).toContain("Los Angeles"); return `Địa chỉ ${token} đã cập nhật City=Los Angeles.`; }));
     test("Address_DeleteNonDefault_24 - Xóa địa chỉ bổ sung không mặc định", run("Address_DeleteNonDefault_24", async page => {
         const token = asm7xToken("DELETE"); if (!await asm7xOpenNewAddress(page)) {
             return {
@@ -493,7 +495,7 @@ test.describe("PROFILE & ADDRESS BOOK — 25 FUNCTIONAL CASES", () => {
 
 test.describe("DEFECT — Profile & Address Book (4 cases)", () => {
     test.describe.configure({ mode: "default" });
-    const runDef = (id, cb, opts = {}) => async ({ page }, testInfo) => {
+    const runDef = (id: string, cb: (page: Page) => CallbackResult | Promise<CallbackResult>, opts: { guest?: boolean } = {}) => async ({ page }: { page: Page }, testInfo: TestInfo) => {
         await asm7xExecute(testInfo, page, id, () => cb(page), opts);
     };
 
@@ -603,7 +605,7 @@ test.describe("DEFECT — Profile & Address Book (4 cases)", () => {
         let changedCountry = false;
         if (country) {
             const opts = await country.locator("option").evaluateAll(els =>
-                els.map(x => ({ value: x.value, text: (x.textContent || "").trim() })).filter(x => x.value)
+                (els as HTMLOptionElement[]).map(x => ({ value: x.value, text: (x.textContent || "").trim() })).filter(x => x.value)
             );
             const vn = opts.find(x => /vietnam|viet nam/i.test(x.text));
             if (vn) { await country.selectOption(vn.value); await page.waitForTimeout(500); changedCountry = true; }
@@ -615,7 +617,7 @@ test.describe("DEFECT — Profile & Address Book (4 cases)", () => {
         const zipInvalid = zip ? await asm7xInvalid(zip) : false;
         const outcome = zipInvalid
             ? { validation: true, saved: false }
-            : await asm7xSubmitAddressForValidation(page, zip || (await asm7xField(page, "street")), token);
+            : await asm7xSubmitAddressForValidation(page, (zip || (await asm7xField(page, "street")))!, token);
 
         if (outcome.saved) await asm7xDeleteAddress(page, token).catch(() => {});
 
@@ -627,6 +629,7 @@ test.describe("DEFECT — Profile & Address Book (4 cases)", () => {
 
         // DEF_Profile_04: Xác nhận defect hệ thống không validate postcode theo quốc gia
         if (outcome.saved && !outcome.validation) {
+            // @ts-expect-error `testInfo` không tồn tại trong phạm vi này ở source JS gốc; giữ nguyên hành vi (ReferenceError khi chạy tới đây)
             testInfo.annotations.push({ type: 'Defect Confirmed', description: 'Hệ thống chấp nhận mã zip US 90210 cho quốc gia Vietnam' });
         }
         return desc;
