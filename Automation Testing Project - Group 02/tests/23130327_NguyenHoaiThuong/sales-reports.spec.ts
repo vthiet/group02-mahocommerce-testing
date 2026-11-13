@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = process.env.MAHO_URL || 'https://demo.mahocommerce.com';
-const ADMIN_URL = `${BASE_URL}/admin2941834/`;
-const ADMIN_USER = process.env.ADMIN_USER || 'demo';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'demo1234demo1234';
+const BASE_URL: string = process.env.MAHO_URL || 'https://demo.mahocommerce.com';
+const ADMIN_URL: string = `${BASE_URL}/admin2941834/`;
+const ADMIN_USER: string = process.env.ADMIN_USER || 'demo';
+const ADMIN_PASS: string = process.env.ADMIN_PASS || 'demo1234demo1234';
 
-async function waitForReset(page) {
+async function waitForReset(page: Page): Promise<void> {
     for (let i = 0; i < 15; i++) {
         const isResetting = await page.locator('text=Demo is resetting').isVisible().catch(() => false);
         if (!isResetting) break;
@@ -15,7 +15,7 @@ async function waitForReset(page) {
     }
 }
 
-async function loginAdmin(page) {
+async function loginAdmin(page: Page): Promise<void> {
     await page.goto(ADMIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await waitForReset(page);
 
@@ -34,7 +34,7 @@ async function loginAdmin(page) {
     await expect(mainMenu).toBeVisible({ timeout: 30000 });
 }
 
-async function goToReport(page, menuHrefPattern) {
+async function goToReport(page: Page, menuHrefPattern: string): Promise<void> {
     await loginAdmin(page);
     const linkLocator = page.locator(`#nav a[href*="${menuHrefPattern}"]`).first();
     try {
@@ -54,15 +54,15 @@ async function goToReport(page, menuHrefPattern) {
 
 test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', () => {
 
-    test('Report_Access_01: Kiểm tra truy cập trang Báo cáo Doanh thu với quyền Administrator', async ({ page }) => {
+    test('[SalesReports-1] Kiểm tra truy cập trang Báo cáo Doanh thu với quyền Administrator', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         const pageHeader = page.locator('.content-header h3, h3').first();
         await expect(pageHeader).toBeVisible();
         await expect(pageHeader).toContainText(/Total Ordered Report|Orders/i);
     });
 
-    test('Report_Access_02: Kiểm tra phân quyền truy cập (ACL) khi tài khoản không có quyền xem báo cáo', async ({ page }) => {
-        const hasStaffAccount = Boolean(process.env.STAFF_USER && process.env.STAFF_PASS);
+    test('[SalesReports-2] Kiểm tra phân quyền truy cập (ACL) khi tài khoản không có quyền xem báo cáo', async ({ page }) => {
+        const hasStaffAccount: boolean = Boolean(process.env.STAFF_USER && process.env.STAFF_PASS);
         test.skip(!hasStaffAccount, 'Yêu cầu tài khoản nhân viên (Staff Role) phân quyền hạn chế - Môi trường demo chỉ cung cấp Super Admin chung (demo/demo1234demo1234)');
 
         await page.goto(`${ADMIN_URL}report_sales/sales/`, { waitUntil: 'domcontentloaded' });
@@ -70,7 +70,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         expect(accessDenied || page.url().includes('denied') || page.url().includes('dashboard')).toBeTruthy();
     });
 
-    test('Report_Display_01: Kiểm tra bố cục, vị trí và hiển thị đầy đủ các thành phần trang Báo cáo', async ({ page }) => {
+    test('[SalesReports-3] Kiểm tra bố cục, vị trí và hiển thị đầy đủ các thành phần trang Báo cáo', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await expect(page.locator('#sales_report_period_type')).toBeVisible();
         await expect(page.locator('#sales_report_from')).toBeVisible();
@@ -79,7 +79,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_Display_02: Kiểm tra trạng thái hiển thị mặc định khi mới vào trang Báo cáo', async ({ page }) => {
+    test('[SalesReports-4] Kiểm tra trạng thái hiển thị mặc định khi mới vào trang Báo cáo', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         const periodSelect = page.locator('#sales_report_period_type');
         await expect(periodSelect).toBeVisible();
@@ -87,28 +87,28 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         expect(['day', 'month', 'year', '']).toContain(selectedPeriod.toLowerCase());
     });
 
-    test('Report_Chart_01: Kiểm tra biểu đồ doanh thu theo chu kỳ Ngày (Period = Day)', async ({ page }) => {
+    test('[SalesReports-5] Kiểm tra biểu đồ doanh thu theo chu kỳ Ngày (Period = Day)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_period_type').selectOption({ label: 'Day' });
         await page.locator('button:has-text("Show Report")').click();
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_Chart_02: Kiểm tra biểu đồ doanh thu theo chu kỳ Tháng (Period = Month)', async ({ page }) => {
+    test('[SalesReports-6] Kiểm tra biểu đồ doanh thu theo chu kỳ Tháng (Period = Month)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_period_type').selectOption({ label: 'Month' });
         await page.locator('button:has-text("Show Report")').click();
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_Chart_03: Kiểm tra biểu đồ doanh thu theo chu kỳ Năm (Period = Year)', async ({ page }) => {
+    test('[SalesReports-7] Kiểm tra biểu đồ doanh thu theo chu kỳ Năm (Period = Year)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_period_type').selectOption({ label: 'Year' });
         await page.locator('button:has-text("Show Report")').click();
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_Chart_04: Kiểm tra chuyển đổi Metric (Amounts / Orders) trên biểu đồ Dashboard', async ({ page }) => {
+    test('[SalesReports-8] Kiểm tra chuyển đổi Metric (Amounts / Orders) trên biểu đồ Dashboard', async ({ page }) => {
         await goToReport(page, 'dashboard');
         const amountsBtn = page.locator('#amounts_metric, button:has-text("Amounts")').first();
         const ordersBtn = page.locator('#orders_metric, button:has-text("Orders")').first();
@@ -120,7 +120,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         }
     });
 
-    test('Report_Chart_05: Kiểm tra tương tác bộ chọn nhanh khoảng thời gian (Select Range)', async ({ page }) => {
+    test('[SalesReports-9] Kiểm tra tương tác bộ chọn nhanh khoảng thời gian (Select Range)', async ({ page }) => {
         await goToReport(page, 'dashboard');
         const rangeSelect = page.locator('#select_range, select[name*="range"]').first();
         if (await rangeSelect.isVisible()) {
@@ -129,7 +129,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         }
     });
 
-    test('Report_BVA_Date_01: [BVA] Kiểm tra lọc khoảng ngày ở biên tối thiểu (From = To, 1 ngày duy nhất)', async ({ page }) => {
+    test('[SalesReports-10] [BVA] Kiểm tra lọc khoảng ngày ở biên tối thiểu (From = To, 1 ngày duy nhất)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2026-10-15');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -137,7 +137,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_02: [BVA] Kiểm tra lọc khoảng ngày cận biên dưới (2 ngày liên tiếp)', async ({ page }) => {
+    test('[SalesReports-11] [BVA] Kiểm tra lọc khoảng ngày cận biên dưới (2 ngày liên tiếp)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2026-10-14');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -145,7 +145,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_03: [BVA] Kiểm tra lọc khoảng ngày ở mốc chuẩn (1 tháng - 30 ngày)', async ({ page }) => {
+    test('[SalesReports-12] [BVA] Kiểm tra lọc khoảng ngày ở mốc chuẩn (1 tháng - 30 ngày)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2026-09-15');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -153,7 +153,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_04: [BVA] Kiểm tra lọc khoảng ngày ở biên tối đa trong 1 năm (365 ngày tròn)', async ({ page }) => {
+    test('[SalesReports-13] [BVA] Kiểm tra lọc khoảng ngày ở biên tối đa trong 1 năm (365 ngày tròn)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2025-10-16');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -161,7 +161,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_05: [BVA] Kiểm tra lọc khoảng ngày vượt biên tối đa (> 365 ngày)', async ({ page }) => {
+    test('[SalesReports-14] [BVA] Kiểm tra lọc khoảng ngày vượt biên tối đa (> 365 ngày)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2023-01-01');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -169,7 +169,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_06: [BVA] Kiểm tra nhập ngày không hợp lệ: Từ ngày sau Đến ngày (From > To)', async ({ page }) => {
+    test('[SalesReports-15] [BVA] Kiểm tra nhập ngày không hợp lệ: Từ ngày sau Đến ngày (From > To)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2026-12-31');
         await page.locator('#sales_report_to').fill('2026-01-01');
@@ -178,7 +178,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.validation-advice, .error-msg, .messages .error-msg')).toBeVisible({ timeout: 2000 });
     });
 
-    test('Report_BVA_Date_07: [BVA] Kiểm tra chọn ngày kết thúc vượt quá ngày hiện tại (Ngày trong tương lai)', async ({ page }) => {
+    test('[SalesReports-16] [BVA] Kiểm tra chọn ngày kết thúc vượt quá ngày hiện tại (Ngày trong tương lai)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2030-01-01');
         await page.locator('#sales_report_to').fill('2030-01-31');
@@ -186,7 +186,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_08: [BVA] Kiểm tra khoảng ngày vắt qua ranh giới năm mới và ngày nhuận (29/02)', async ({ page }) => {
+    test('[SalesReports-17] [BVA] Kiểm tra khoảng ngày vắt qua ranh giới năm mới và ngày nhuận (29/02)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2024-02-28');
         await page.locator('#sales_report_to').fill('2024-03-01');
@@ -194,7 +194,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Date_09: [BVA] Kiểm tra khoảng thời gian không có doanh thu (Doanh thu = 0đ, 0 đơn)', async ({ page }) => {
+    test('[SalesReports-18] [BVA] Kiểm tra khoảng thời gian không có doanh thu (Doanh thu = 0đ, 0 đơn)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2010-01-01');
         await page.locator('#sales_report_to').fill('2010-01-02');
@@ -202,67 +202,67 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_TopProduct_01: Kiểm tra hiển thị danh sách sản phẩm bán chạy (Bestsellers)', async ({ page }) => {
+    test('[SalesReports-19] Kiểm tra hiển thị danh sách sản phẩm bán chạy (Bestsellers)', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         const pageHeader = page.locator('.content-header h3, h3').first();
         await expect(pageHeader).toBeVisible();
         await expect(pageHeader).toContainText(/Bestsellers|Products/i);
     });
 
-    test('Report_TopProduct_02: Kiểm tra bảng Bestsellers trên Dashboard (Top 5 sản phẩm)', async ({ page }) => {
+    test('[SalesReports-20] Kiểm tra bảng Bestsellers trên Dashboard (Top 5 sản phẩm)', async ({ page }) => {
         await goToReport(page, 'dashboard');
         const bestsellersTable = page.locator('table').filter({ hasText: /Product Name/i }).first();
         await expect(bestsellersTable).toBeVisible();
     });
 
-    test('Report_TopProduct_03: Kiểm tra truy cập trang làm mới số liệu (Refresh Statistics)', async ({ page }) => {
+    test('[SalesReports-21] Kiểm tra truy cập trang làm mới số liệu (Refresh Statistics)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         expect(page.url()).toContain('report_sales');
     });
 
-    test('Report_TopProduct_04: Kiểm tra tìm kiếm và lọc dữ liệu trên danh sách Bestsellers', async ({ page }) => {
+    test('[SalesReports-22] Kiểm tra tìm kiếm và lọc dữ liệu trên danh sách Bestsellers', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_TopProduct_05: Kiểm tra thanh điều hướng phân trang (Paging) của Bestsellers', async ({ page }) => {
+    test('[SalesReports-23] Kiểm tra thanh điều hướng phân trang (Paging) của Bestsellers', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Top_01: [BVA] Kiểm tra hiển thị Top N sản phẩm ở biên tối thiểu (Top 1 Quán quân)', async ({ page }) => {
+    test('[SalesReports-24] [BVA] Kiểm tra hiển thị Top N sản phẩm ở biên tối thiểu (Top 1 Quán quân)', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         const rows = page.locator('.grid tbody tr, table tbody tr');
         expect(await rows.count()).toBeGreaterThanOrEqual(1);
     });
 
-    test('Report_BVA_Top_02: [BVA] Kiểm tra hiển thị Top sản phẩm với tùy chọn số dòng trên 1 trang', async ({ page }) => {
+    test('[SalesReports-25] [BVA] Kiểm tra hiển thị Top sản phẩm với tùy chọn số dòng trên 1 trang', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Top_03: [BVA] Kiểm tra sản phẩm có số lượng bán bằng 0 (Biên loại trừ)', async ({ page }) => {
+    test('[SalesReports-26] [BVA] Kiểm tra sản phẩm có số lượng bán bằng 0 (Biên loại trừ)', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Top_04: [BVA] Kiểm tra sản phẩm có số lượng bán bằng 1 (Biên tối thiểu hợp lệ)', async ({ page }) => {
+    test('[SalesReports-27] [BVA] Kiểm tra sản phẩm có số lượng bán bằng 1 (Biên tối thiểu hợp lệ)', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('.grid, table').first()).toBeVisible();
     });
 
-    test('Report_BVA_Top_05: [BVA] Kiểm tra hiển thị đồng hạng khi các sản phẩm có cùng số lượng bán', async ({ page }) => {
+    test('[SalesReports-28] [BVA] Kiểm tra hiển thị đồng hạng khi các sản phẩm có cùng số lượng bán', async ({ page }) => {
         await goToReport(page, 'dashboard');
         const table = page.locator('table').filter({ hasText: /Product Name/i }).first();
         await expect(table).toBeVisible();
     });
 
-    test('Report_Export_01: Kiểm tra xuất báo cáo doanh thu định dạng file Excel (.xml / .xlsx)', async ({ page }) => {
+    test('[SalesReports-29] Kiểm tra xuất báo cáo doanh thu định dạng file Excel (.xml / .xlsx)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_Export_02: Kiểm tra xuất báo cáo doanh thu định dạng file CSV (.csv)', async ({ page }) => {
+    test('[SalesReports-30] Kiểm tra xuất báo cáo doanh thu định dạng file CSV (.csv)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         const exportSelect = page.locator('#sales_report_export, select').filter({ hasText: /CSV/i }).first();
         if (await exportSelect.isVisible()) {
@@ -271,12 +271,12 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_Export_03: Kiểm tra xuất danh sách Bestsellers sang CSV/Excel', async ({ page }) => {
+    test('[SalesReports-31] Kiểm tra xuất danh sách Bestsellers sang CSV/Excel', async ({ page }) => {
         await goToReport(page, 'report_sales/bestsellers');
         await expect(page.locator('button:has-text("Export")').first()).toBeVisible();
     });
 
-    test('Report_BVA_Export_01: [BVA] Kiểm tra xuất báo cáo khi không có dữ liệu (0 bản ghi / 0 record)', async ({ page }) => {
+    test('[SalesReports-32] [BVA] Kiểm tra xuất báo cáo khi không có dữ liệu (0 bản ghi / 0 record)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2010-01-01');
         await page.locator('#sales_report_to').fill('2010-01-02');
@@ -284,7 +284,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_BVA_Export_02: [BVA] Kiểm tra xuất báo cáo khi có 1 bản ghi dữ liệu duy nhất (Biên Min = 1 record)', async ({ page }) => {
+    test('[SalesReports-33] [BVA] Kiểm tra xuất báo cáo khi có 1 bản ghi dữ liệu duy nhất (Biên Min = 1 record)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2026-10-15');
         await page.locator('#sales_report_to').fill('2026-10-15');
@@ -292,7 +292,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_BVA_Export_03: [BVA] Kiểm tra xuất báo cáo dung lượng lớn chạm ngưỡng cho phép (10,000 dòng)', async ({ page }) => {
+    test('[SalesReports-34] [BVA] Kiểm tra xuất báo cáo dung lượng lớn chạm ngưỡng cho phép (10,000 dòng)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         await page.locator('#sales_report_from').fill('2024-01-01');
         await page.locator('#sales_report_to').fill('2026-12-31');
@@ -300,8 +300,8 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(page.locator('button:has-text("Export")')).toBeVisible();
     });
 
-    test('Report_BVA_Export_04: [BVA] Kiểm tra cơ chế giới hạn tải và bảo vệ tài nguyên khi xuất dữ liệu', async ({ page }) => {
-        const isProductionCluster = process.env.TEST_ENV === 'production' || process.env.ENABLE_RATE_LIMIT === 'true';
+    test('[SalesReports-35] [BVA] Kiểm tra cơ chế giới hạn tải và bảo vệ tài nguyên khi xuất dữ liệu', async ({ page }) => {
+        const isProductionCluster: boolean = process.env.TEST_ENV === 'production' || process.env.ENABLE_RATE_LIMIT === 'true';
         test.skip(!isProductionCluster, 'Cơ chế Rate Limiting & Resource Throttling chỉ cấu hình trên cụm Production / Enterprise Gateway, môi trường Demo Public không áp dụng.');
 
         await goToReport(page, 'report_sales/sales');
@@ -309,7 +309,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(exportSelect).toBeVisible();
     });
 
-    test('Report_BVA_Export_05: [BVA] Kiểm tra định dạng mã hóa ký tự UTF-8 cho báo cáo xuất CSV', async ({ page }) => {
+    test('[SalesReports-36] [BVA] Kiểm tra định dạng mã hóa ký tự UTF-8 cho báo cáo xuất CSV', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         const footerLang = page.locator('select#interface_locale, select[name="locale"]').first();
         if (await footerLang.isVisible()) {
@@ -317,7 +317,7 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         }
     });
 
-    test('Report_Export_06: Kiểm tra chống spam click vào nút Xuất file (Export)', async ({ page }) => {
+    test('[SalesReports-37] Kiểm tra chống spam click vào nút Xuất file (Export)', async ({ page }) => {
         await goToReport(page, 'report_sales/sales');
         const exportBtn = page.locator('button:has-text("Export")');
         await exportBtn.click();
@@ -325,10 +325,10 @@ test.describe('1. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)', 
         await expect(exportBtn).toBeDisabled({ timeout: 1000 });
     });
 
-    test('Report_Perf_01: Kiểm tra thời gian phản hồi khi tải biểu đồ và báo cáo lớn (SLA <= 3 giây)', async ({ page }) => {
-        const startTime = Date.now();
+    test('[SalesReports-38] Kiểm tra thời gian phản hồi khi tải biểu đồ và báo cáo lớn (SLA <= 3 giây)', async ({ page }) => {
+        const startTime: number = Date.now();
         await goToReport(page, 'dashboard');
-        const duration = (Date.now() - startTime) / 1000;
+        const duration: number = (Date.now() - startTime) / 1000;
         console.log(`Thời gian phản hồi trang Dashboard: ${duration.toFixed(2)}s`);
         expect(duration).toBeLessThanOrEqual(5);
     });

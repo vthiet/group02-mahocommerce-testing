@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = process.env.MAHO_URL || 'https://demo.mahocommerce.com';
-const ADMIN_URL = `${BASE_URL}/admin2941834/`;
-const ADMIN_USER = process.env.ADMIN_USER || 'demo';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'demo1234demo1234';
+const BASE_URL: string = process.env.MAHO_URL || 'https://demo.mahocommerce.com';
+const ADMIN_URL: string = `${BASE_URL}/admin2941834/`;
+const ADMIN_USER: string = process.env.ADMIN_USER || 'demo';
+const ADMIN_PASS: string = process.env.ADMIN_PASS || 'demo1234demo1234';
 
-async function waitForReset(page) {
+async function waitForReset(page: Page): Promise<void> {
     for (let i = 0; i < 15; i++) {
         const isResetting = await page.locator('text=Demo is resetting').isVisible().catch(() => false);
         if (!isResetting) break;
@@ -14,7 +14,8 @@ async function waitForReset(page) {
         await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => { });
     }
 }
-async function loginAdmin(page) {
+
+async function loginAdmin(page: Page): Promise<void> {
     await page.goto(ADMIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await waitForReset(page);
 
@@ -33,7 +34,7 @@ async function loginAdmin(page) {
     await expect(mainMenu).toBeVisible({ timeout: 30000 });
 }
 
-async function goToPromoQuote(page) {
+async function goToPromoQuote(page: Page): Promise<void> {
     await loginAdmin(page);
     const promoLink = page.locator('#nav a[href*="promo_quote"]').first();
     try {
@@ -51,13 +52,13 @@ async function goToPromoQuote(page) {
     await waitForReset(page);
 }
 
-async function addSampleProduct(page) {
+async function addSampleProduct(page: Page): Promise<void> {
     await page.goto(`${BASE_URL}/default/fashion/accessories/bags-luggage/halden-leather-weekender/`, { waitUntil: 'domcontentloaded' });
     await waitForReset(page);
     const form = page.locator('#product_addtocart_form');
     if (await form.isVisible().catch(() => false)) {
         await page.evaluate(() => {
-            const f = document.getElementById('product_addtocart_form');
+            const f = document.getElementById('product_addtocart_form') as HTMLFormElement | null;
             if (f) HTMLFormElement.prototype.submit.call(f);
         });
         await page.waitForLoadState('domcontentloaded').catch(() => { });
@@ -67,7 +68,7 @@ async function addSampleProduct(page) {
     await waitForReset(page);
 }
 
-async function ensureProductInCart(page) {
+async function ensureProductInCart(page: Page): Promise<void> {
     await page.goto(`${BASE_URL}/default/checkout/cart/`, { waitUntil: 'domcontentloaded' });
     await waitForReset(page);
     if (await page.locator('#shopping-cart-table').isVisible().catch(() => false)) {
@@ -78,14 +79,14 @@ async function ensureProductInCart(page) {
 
 test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', () => {
 
-    test('Coupon_Admin_01: Kiểm tra truy cập trang Quản lý Mã giảm giá (Shopping Cart Price Rules) trong Admin', async ({ page }) => {
+    test('[CouponManagement-1] Kiểm tra truy cập trang Quản lý Mã giảm giá (Shopping Cart Price Rules) trong Admin', async ({ page }) => {
         await goToPromoQuote(page);
         const header = page.locator('.content-header h3, h3').first();
         await expect(header).toBeVisible();
         await expect(header).toContainText(/Shopping Cart Price Rules|Promotions/i);
     });
 
-    test('Coupon_Admin_02: Kiểm tra cấu trúc lưới hiển thị danh sách mã giảm giá (Grid view)', async ({ page }) => {
+    test('[CouponManagement-2] Kiểm tra cấu trúc lưới hiển thị danh sách mã giảm giá (Grid view)', async ({ page }) => {
         await goToPromoQuote(page);
         const grid = page.locator('#promo_quote_grid, .grid').first();
         await expect(grid).toBeVisible();
@@ -94,7 +95,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(gridHeader).toContainText(/Status/i);
     });
 
-    test('Coupon_Admin_03: Kiểm tra mở form tạo mới quy tắc mã giảm giá (Add New Rule)', async ({ page }) => {
+    test('[CouponManagement-3] Kiểm tra mở form tạo mới quy tắc mã giảm giá (Add New Rule)', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await expect(addBtn).toBeVisible();
@@ -104,7 +105,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(page.locator('#rule_coupon_type')).toBeVisible();
     });
 
-    test('Coupon_Admin_04: [Validation] Kiểm tra bắt lỗi khi lưu quy tắc mã giảm giá để trống trường bắt buộc', async ({ page }) => {
+    test('[CouponManagement-4] [Validation] Kiểm tra bắt lỗi khi lưu quy tắc mã giảm giá để trống trường bắt buộc', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -114,7 +115,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(advice).toBeVisible();
     });
 
-    test('Coupon_Admin_05: Kiểm tra cấu hình loại Coupon cụ thể (Specific Coupon) và ô nhập mã Coupon Code', async ({ page }) => {
+    test('[CouponManagement-5] Kiểm tra cấu hình loại Coupon cụ thể (Specific Coupon) và ô nhập mã Coupon Code', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -126,7 +127,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(couponCodeInput).toHaveValue('TESTSALE15');
     });
 
-    test('Coupon_Admin_06: Kiểm tra lọc và tìm kiếm quy tắc giảm giá trên Grid Admin', async ({ page }) => {
+    test('[CouponManagement-6] Kiểm tra lọc và tìm kiếm quy tắc giảm giá trên Grid Admin', async ({ page }) => {
         await goToPromoQuote(page);
         const nameFilter = page.locator('input[name="name"], #promo_quote_grid_filter_name').first();
         if (await nameFilter.isVisible()) {
@@ -136,7 +137,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Admin_07: [Admin/Date] Kiểm tra cấu hình thời hạn hiệu lực (From Date và To Date) của quy tắc', async ({ page }) => {
+    test('[CouponManagement-7] [Admin/Date] Kiểm tra cấu hình thời hạn hiệu lực (From Date và To Date) của quy tắc', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -150,7 +151,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Admin_08: [Admin/Usage] Kiểm tra cấu hình giới hạn số lượt sử dụng (Uses per Coupon và Uses per Customer)', async ({ page }) => {
+    test('[CouponManagement-8] [Admin/Usage] Kiểm tra cấu hình giới hạn số lượt sử dụng (Uses per Coupon và Uses per Customer)', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -164,7 +165,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Admin_09: [Admin/Group] Kiểm tra cấu hình nhóm khách hàng áp dụng quy tắc giảm giá (Customer Groups)', async ({ page }) => {
+    test('[CouponManagement-9] [Admin/Group] Kiểm tra cấu hình nhóm khách hàng áp dụng quy tắc giảm giá (Customer Groups)', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -176,7 +177,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Admin_10: [Admin/Action] Kiểm tra cấu hình phương thức giảm giá (Percent Discount vs Fixed Amount)', async ({ page }) => {
+    test('[CouponManagement-10] [Admin/Action] Kiểm tra cấu hình phương thức giảm giá (Percent Discount vs Fixed Amount)', async ({ page }) => {
         await goToPromoQuote(page);
         const addBtn = page.locator('.content-header button, button:has-text("Add"), button[title="Add"]').first();
         await addBtn.click();
@@ -188,7 +189,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Store_01: Storefront - Kiểm tra giao diện ô nhập mã giảm giá và nút Apply trong giỏ hàng', async ({ page }) => {
+    test('[CouponManagement-11] Kiểm tra giao diện ô nhập mã giảm giá và nút Apply trong giỏ hàng', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -197,11 +198,11 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(promoBtn).toHaveText(/Apply/i);
     });
 
-    test('Coupon_Store_02: Storefront - [Negative] Áp dụng mã giảm giá không tồn tại trên hệ thống', async ({ page }) => {
+    test('[CouponManagement-12] [Negative] Áp dụng mã giảm giá không tồn tại trên hệ thống', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
-        const fakeCode = 'INVALID_COUPON_9999';
+        const fakeCode: string = 'INVALID_COUPON_9999';
         await promoInput.fill(fakeCode);
         await promoBtn.click();
         const messageContainer = page.locator('#maho-promo-message, .promo-message.error');
@@ -209,7 +210,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(new RegExp(`Promo code "${fakeCode}" is not valid`, 'i'));
     });
 
-    test('Coupon_Store_03: Storefront - [Validation] Bấm Apply khi để trống ô nhập mã giảm giá', async ({ page }) => {
+    test('[CouponManagement-13] [Validation] Bấm Apply khi để trống ô nhập mã giảm giá', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -220,7 +221,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(/Please enter a promo code/i);
     });
 
-    test('Coupon_Store_04: Storefront - [BVA] Kiểm tra nhập mã giảm giá chứa khoảng trắng đầu cuối (Trim check)', async ({ page }) => {
+    test('[CouponManagement-14] [BVA] Kiểm tra nhập mã giảm giá chứa khoảng trắng đầu cuối (Trim check)', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -232,7 +233,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(successMessage).toContainText(/was applied/i, { timeout: 2000 });
     });
 
-    test('Coupon_Store_05: Storefront - [Negative/BVA] Kiểm tra nhập chuỗi ký tự đặc biệt làm mã giảm giá', async ({ page }) => {
+    test('[CouponManagement-15] [Negative/BVA] Kiểm tra nhập chuỗi ký tự đặc biệt làm mã giảm giá', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -243,14 +244,14 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(/not valid/i);
     });
 
-    test('Coupon_Store_06: Storefront - [Security] Kiểm tra không bị tấn công XSS / Script Injection qua ô nhập Coupon', async ({ page }) => {
-        const runSecurityAudit = process.env.SECURITY_AUDIT === 'true';
+    test('[CouponManagement-16] [Security] Kiểm tra không bị tấn công XSS / Script Injection qua ô nhập Coupon', async ({ page }) => {
+        const runSecurityAudit: boolean = process.env.SECURITY_AUDIT === 'true';
         test.skip(!runSecurityAudit, 'Kịch bản Security Audit chuyên sâu (XSS/SQLi) được quản lý qua cờ SECURITY_AUDIT để tránh kích hoạt Cloudflare WAF trên máy chủ demo.');
 
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
-        let alertTriggered = false;
+        let alertTriggered: boolean = false;
         page.on('dialog', async dialog => {
             alertTriggered = true;
             await dialog.dismiss();
@@ -261,7 +262,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         expect(alertTriggered).toBeFalsy();
     });
 
-    test('Coupon_Store_07: Storefront - [Positive] Áp dụng thành công mã giảm giá hợp lệ (DISCOUNT10) và hiển thị thông báo', async ({ page }) => {
+    test('[CouponManagement-17] [Positive] Áp dụng thành công mã giảm giá hợp lệ (DISCOUNT10) và hiển thị thông báo', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -272,7 +273,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(/was applied/i);
     });
 
-    test('Coupon_Store_08: Storefront - [Negative] Áp dụng mã giảm giá đã hết hạn sử dụng (EXPIRED2025)', async ({ page }) => {
+    test('[CouponManagement-18] [Negative] Áp dụng mã giảm giá đã hết hạn sử dụng (EXPIRED2025)', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -283,7 +284,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(/expired|not valid/i);
     });
 
-    test('Coupon_Store_09: Storefront - [Positive] Kiểm tra hủy áp dụng mã giảm giá (Cancel / Remove Coupon)', async ({ page }) => {
+    test('[CouponManagement-19] [Positive] Kiểm tra hủy áp dụng mã giảm giá (Cancel / Remove Coupon)', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
@@ -301,11 +302,11 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         }
     });
 
-    test('Coupon_Store_10: Storefront - [BVA] Kiểm tra nhập chuỗi mã coupon vượt giới hạn độ dài cho phép (>50 ký tự)', async ({ page }) => {
+    test('[CouponManagement-20] [BVA] Kiểm tra nhập chuỗi mã coupon vượt giới hạn độ dài cho phép (>50 ký tự)', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
-        const longCode = 'A'.repeat(60);
+        const longCode: string = 'A'.repeat(60);
         await promoInput.fill(longCode);
         await promoBtn.click();
         const messageContainer = page.locator('#maho-promo-message, .promo-message.error');
@@ -313,7 +314,7 @@ test.describe('2. Quản lý Mã giảm giá (Coupon / Discount Code System)', (
         await expect(messageContainer).toContainText(/not valid|too long/i);
     });
 
-    test('Coupon_Store_11: Storefront - [Negative] Kiểm tra thao tác bấm Apply liên tục nhiều lần (Spam Click Coupon)', async ({ page }) => {
+    test('[CouponManagement-21] [Negative] Kiểm tra thao tác bấm Apply liên tục nhiều lần (Spam Click Coupon)', async ({ page }) => {
         await ensureProductInCart(page);
         const promoInput = page.locator('#maho-promo-code');
         const promoBtn = page.locator('#maho-promo-apply');
