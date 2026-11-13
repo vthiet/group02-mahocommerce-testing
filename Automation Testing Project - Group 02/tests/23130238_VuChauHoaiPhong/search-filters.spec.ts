@@ -1,4 +1,4 @@
-const {
+import {
   test,
   expect,
   BASE,
@@ -96,7 +96,7 @@ const {
   asm7xAutoLogin,
   runDefSearch,
   runDefAuth
-} = require('./support.cjs');
+} from './support';
 
 test.use({
   viewport: { width: 1366, height: 768 },
@@ -164,7 +164,7 @@ test.describe("Search - Tìm kiếm từ khóa", () => {
         }); await maxInput.click(); await maxInput.pressSequentially("abc", {
             delay: 80
         }); await maxInput.blur(); await minInput.blur(); await page.waitForTimeout(500); const minVal = await minInput.inputValue(); const maxVal = await maxInput.inputValue();
-        expect(await minInput.evaluate(input => input.validity.rangeUnderflow)).toBeTruthy(); expect(maxVal, "Ô Max Price không được nhận chữ").not.toMatch(/[a-z]/i);
+        expect(await minInput.evaluate(input => (input as HTMLInputElement).validity.rangeUnderflow)).toBeTruthy(); expect(maxVal, "Ô Max Price không được nhận chữ").not.toMatch(/[a-z]/i);
         expect(maxVal === "" || /^\d+$/.test(maxVal)).toBeTruthy(); expect((await getProducts(page)).length).toBe(before); });
     test("Filter_CategoryBrand_05 - Lọc kết hợp Thương hiệu + Danh mục", async ({page: page}) => {
         await gotoStorefront(page, `${BASE}electronics/`); await clickSidebar(page, "Voltline"); await clickSidebar(page, "Computing"); const active = await activeFilterText(page);
@@ -219,8 +219,8 @@ test.describe("Search - Tìm kiếm từ khóa", () => {
     test('Search_UI_05 - Đổi biến thể màu khi xem chi tiết "Harbour stripe tee"', async ({page: page}) => {
         await openHome(page); const box = await typeSearch(page, "Harbour stripe tee"); await pressEnterAndWait(page, box); await clickProductAndCheck(page, /harbour stripe tee/i);
         const snapshot = () => page.evaluate(() => {
-            const imgs = Array.from(document.querySelectorAll("main img, .product-view img, img")).slice(0, 6).map(i => i.currentSrc || i.src).join("|");
-            const values = Array.from(document.querySelectorAll('input[name*="attribute"], select[name*="attribute"]')).map(el => `${el.name}=${el.value}`);
+            const imgs = Array.from(document.querySelectorAll<HTMLImageElement>("main img, .product-view img, img")).slice(0, 6).map(i => i.currentSrc || i.src).join("|");
+            const values = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input[name*="attribute"], select[name*="attribute"]')).map(el => `${el.name}=${el.value}`);
             const swatches = Array.from(document.querySelectorAll(".swatch-link")).map(el => `${el.getAttribute("title")}:${el.className}:${el.parentElement?.className}`);
             return JSON.stringify({
                 imgs: imgs,

@@ -1,4 +1,4 @@
-const {
+import {
   test,
   expect,
   BASE,
@@ -95,7 +95,9 @@ const {
   asm7xAutoLogin,
   runDefSearch,
   runDefAuth
-} = require('./support.cjs');
+} from './support';
+import type { Page, Browser, TestInfo } from '@playwright/test';
+import type { CallbackResult } from './support';
 
 test.use({
   viewport: { width: 1366, height: 768 },
@@ -110,7 +112,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 30 TEST CASES", () => {
 test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
     test.describe.configure({
         mode: "default"
-    }); const run = (id, callback, options = {}) => async ({page: page, browser: browser}, testInfo) => {
+    }); const run = (id: string, callback: (page: Page, browser: Browser) => CallbackResult | Promise<CallbackResult>, options: { guest?: boolean } = {}) => async ({page: page, browser: browser}: { page: Page; browser: Browser }, testInfo: TestInfo) => {
         await asm7xExecute(testInfo, page, id, () => callback(page, browser), {
             guest: true,
             ...options
@@ -181,7 +183,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
             }; }
         await qty.fill("2"); expect(await asm7xUpdateCart(page)).toBeTruthy(); await asm7xGo(page, ASM7X_CART_URL); const updated = await asm7xCartRow(page, ASM7X_PRODUCT_ONE);
         const input = updated ? await asm7xFind(updated, [ 'input[name*="qty"]', "input.qty", 'input[type="number"]' ]) : null; expect(input).not.toBeNull();
-        expect(Number(await input.inputValue())).toBe(2); return "Quantity được cập nhật từ 1 lên 2 và vẫn giữ sau khi tải lại Cart."; }));
+        expect(Number(await input!.inputValue())).toBe(2); return "Quantity được cập nhật từ 1 lên 2 và vẫn giữ sau khi tải lại Cart."; }));
     test("Cart_UpdateQtyZero_05 - Xử lý quantity bằng 0", run("Cart_UpdateQtyZero_05", async page => {
         const reset = await asm7xResetCart(page); if (!reset.ok) {
             return {
@@ -198,7 +200,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 blocked: true,
                 reason: "Không có quantity input."
             }; }
-        const input = inputs.first(); await input.fill("0"); const invalid = await input.evaluate(el => !el.checkValidity()); if (!await asm7xUpdateCart(page)) {
+        const input = inputs.first(); await input.fill("0"); const invalid = await input.evaluate(el => !(el as HTMLInputElement).checkValidity()); if (!await asm7xUpdateCart(page)) {
             return {
                 blocked: true,
                 reason: "Không có nút Update Cart."
@@ -225,7 +227,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 reason: "Không có quantity input."
             }; }
         const input = inputs.first(); const outcomes = []; for (const invalidValue of [ "abc", "-2", "1.5" ]) {
-            await input.fill(invalidValue); const nativeInvalid = await input.evaluate(el => !el.checkValidity()); const acceptedValue = await input.inputValue(); outcomes.push({
+            await input.fill(invalidValue); const nativeInvalid = await input.evaluate(el => !(el as HTMLInputElement).checkValidity()); const acceptedValue = await input.inputValue(); outcomes.push({
                 input: invalidValue,
                 acceptedValue: acceptedValue,
                 nativeInvalid: nativeInvalid
@@ -340,7 +342,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 }; }
             const optionSelects = guestPage.locator("#product-options-wrapper select.super-attribute-select");
             const optionGroups = guestPage.locator("#product-options-wrapper .configurable-swatch-list"); for (let i = 0; i < await optionSelects.count(); i += 1) {
-                const select = optionSelects.nth(i); if (await select.evaluate(element => element.selectedIndex > 0)) continue;
+                const select = optionSelects.nth(i); if (await select.evaluate(element => (element as HTMLSelectElement).selectedIndex > 0)) continue;
                 const option = optionGroups.nth(i).locator(".swatch-link:visible").first(); if (!await option.count()) {
                     return {
                         blocked: true,
@@ -348,7 +350,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                     }; }
                 await option.hover(); await expect.poll(() => select.locator("option").count(), {
                     message: "Tùy chọn sản phẩm chưa tải xong."
-                }).toBeGreaterThan(1); await option.click(); await expect.poll(() => select.evaluate(element => element.selectedIndex), {
+                }).toBeGreaterThan(1); await option.click(); await expect.poll(() => select.evaluate(element => (element as HTMLSelectElement).selectedIndex), {
                     message: "Biến thể bắt buộc phải được chọn trước khi thêm vào giỏ."
                 }).toBeGreaterThan(0); }
             const addResponse = guestPage.waitForResponse(response => {
@@ -419,7 +421,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 reason: "Checkout sử dụng địa chỉ đã lưu và không hiển thị form address để kiểm tra."
             }; }
         let requiredCount = 0; for (const field of fields) {
-            await field.fill(""); if (await asm7xRequired(field)) requiredCount++; }
+            await field!.fill(""); if (await asm7xRequired(field!)) requiredCount++; }
         expect(requiredCount).toBe(fields.length); return `Checkout address validation: ${requiredCount}/${fields.length} empty fields are marked required by the storefront.`; }));
     test("Checkout_PhoneInvalid_13 - Telephone checkout không hợp lệ", run("Checkout_PhoneInvalid_13", async page => {
         const reset = await asm7xResetCart(page); if (!reset.ok) {
@@ -466,9 +468,9 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 reason: "Checkout không hiển thị Postal Code."
             }; }
         if (country) {
-            const opts = await country.locator("option").evaluateAll(els => els.map(el => ({
+            const opts = await country.locator("option").evaluateAll(els => (els as HTMLOptionElement[]).map(el => ({
                 value: el.value,
-                text: el.textContent.trim()
+                text: (el.textContent as string).trim()
             })).filter(x => x.value)); const us = opts.find(x => /united states/i.test(x.text)); if (us) {
                 await country.selectOption(us.value); }
         }
@@ -653,7 +655,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 reason: "Không đọc được bảng My Orders sau thao tác double-submit."
             }; }
         expect(afterCount - beforeCount).toBe(1);
-        return `Double-click chỉ tạo thêm đúng 1 dòng đơn hàng trong My Orders; before=${beforeCount}; after=${afterCount}; reference=${match[1]}.`; }, {
+        return `Double-click chỉ tạo thêm đúng 1 dòng đơn hàng trong My Orders; before=${beforeCount}; after=${afterCount}; reference=${match![1]}.`; }, {
         guest: false
     })); test("Order_ConfirmationRefresh_23 - Tải lại trang xác nhận", run("Order_ConfirmationRefresh_23", async page => {
         const order = await asm7xPlaceTestOrder(page); if (!order.ok) {
@@ -664,7 +666,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
         const first = await page.locator("body").innerText(); expect(first).toContain(order.orderNumber);
         await page.reload({
             waitUntil: "domcontentloaded"
-        }); const after = await page.locator("body").innerText(); const stable = after.includes(order.orderNumber);
+        }); const after = await page.locator("body").innerText(); const stable = after.includes(order.orderNumber!);
         const safeWarning = /resubmit|reload|refresh|already placed/i.test(after); expect(stable || safeWarning).toBeTruthy();
         return `Refresh confirmation: same reference retained=${stable}; safe warning shown=${safeWarning}.`; }, {
         guest: false
@@ -688,7 +690,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
                 blocked: true,
                 reason: order.reason
             }; }
-        await asm7xGo(page, ASM7X_HISTORY_URL); const body = await page.locator("body").innerText(); if (!body.includes(order.orderNumber)) {
+        await asm7xGo(page, ASM7X_HISTORY_URL); const body = await page.locator("body").innerText(); if (!body.includes(order.orderNumber!)) {
             return {
                 blocked: true,
                 reason: `Không tìm thấy ${order.orderNumber} trong My Orders; có thể demo chưa hỗ trợ lịch sử cho trạng thái này.`
@@ -728,7 +730,7 @@ test.describe("ORDER PLACEMENT & INVOICE — 26 FUNCTIONAL CASES", () => {
 
 test.describe("DEFECT — Order Placement & Invoice (4 cases)", () => {
     test.describe.configure({ mode: "default" });
-    const runDef = (id, cb, opts = {}) => async ({ page, browser }, testInfo) => {
+    const runDef = (id: string, cb: (page: Page, browser: Browser) => CallbackResult | Promise<CallbackResult>, opts: { guest?: boolean } = {}) => async ({ page, browser }: { page: Page; browser: Browser }, testInfo: TestInfo) => {
         await asm7xExecute(testInfo, page, id, () => cb(page, browser), { guest: true, ...opts });
     };
 
@@ -792,7 +794,7 @@ test.describe("DEFECT — Order Placement & Invoice (4 cases)", () => {
             addBtn.click()
         ]);
         const bodyText = await page.locator("body").innerText().catch(() => "");
-        const serverError = addResponse?.status() >= 500 || /500|Internal Server Error|Fatal error/i.test(bodyText);
+        const serverError = (addResponse?.status() as number) >= 500 || /500|Internal Server Error|Fatal error/i.test(bodyText);
         const stockError = /not available|out of stock|maximum.*qty|requested qty/i.test(bodyText);
 
         await gotoStorefront(page, ASM7X_CART_URL);
