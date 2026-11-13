@@ -36,6 +36,11 @@ export async function fillVisibleField(page: Page, selectors: string[], value: s
   throw new Error(`Could not find visible form field: ${selectors.join(', ')}`);
 }
 
+export function skipUnlessData(testInfo: TestInfo, entries: Array<[string, unknown]>): void {
+  const absent = entries.filter(([, value]) => value === undefined || value === null || value === '').map(([name]) => name);
+  if (absent.length) testInfo.skip(true, `Set ${absent.join(', ')} in cart-data.ts to enable this scenario.`);
+}
+
 export async function skipUnlessEnv(testInfo: TestInfo, keys: string[]): Promise<void> {
   const absent = keys.filter((key) => !process.env[key]);
   if (absent.length) testInfo.skip(true, `Set environment variable(s) to enable this scenario: ${absent.join(', ')}`);

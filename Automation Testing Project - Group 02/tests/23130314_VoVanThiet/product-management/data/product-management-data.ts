@@ -1,8 +1,8 @@
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const productManagementData = {
-  baseUrl: process.env.MAHO_BASE_URL ?? 'https://maho-26.9.3.ddev.site',
-  adminPath: process.env.MAHO_ADMIN_PATH ?? '/admin',
+  baseUrl: "https://maho-26.9.3.ddev.site",
+  adminPath: "/admin",
   adminUsername: process.env.MAHO_ADMIN_USERNAME,
   adminPassword: process.env.MAHO_ADMIN_PASSWORD,
   runId,
@@ -15,18 +15,20 @@ export const productManagementData = {
   editedProductName: `PW Product Updated ${runId}`,
   deleteProductSku: `PW-PM-DELETE-${runId}`,
   priceFixtureSkus: [9, 10, 25, 50, 51].map(price => `PW-PM-PRICE-${price}-${runId}`),
-  imagePath: process.env.PW_PM_IMAGE_PATH,
-  categoryUrl: process.env.PW_PM_CATEGORY_URL,
-  storefrontHomeUrl: process.env.PW_PM_HOME_URL ?? '/',
-  storefrontSku: process.env.PW_PM_STOREFRONT_PRODUCT_SKU,
-  productUrl: process.env.PW_PM_PRODUCT_URL,
-  storefrontProductName: process.env.PW_PM_STOREFRONT_PRODUCT_NAME,
-  storefrontProductPrice: Number(process.env.PW_PM_PRODUCT_PRICE ?? 50),
-  configurableProductUrl: process.env.PW_PM_CONFIGURABLE_PRODUCT_URL,
-  configurableSku: process.env.PW_PM_CONFIGURABLE_SKU,
-  variantSku: process.env.PW_PM_VARIANT_SKU,
-  swatchLabel: process.env.PW_PM_SWATCH_LABEL ?? 'Blue',
-  gridPriceFilterAvailable: process.env.PW_PM_PRICE_FILTER_AVAILABLE === 'true',
+  imagePath: "/home/vvt/shared/group02-mahocommerce-testing/Automation Testing Project - Group 02/test-resource/image1.png",
+  categoryUrl: "/default/kids/",
+  storefrontHomeUrl: "/default/",
+  storefrontSku: "K-BLOCKS",
+  productUrl: "/default/building-blocks-50-pieces/",
+  storefrontProductName: "Building blocks, 50 pieces",
+  storefrontProductPrice: 45,
+  configurableAttribute: undefined,
+  configurableProductUrl: undefined,
+  configurableSku: undefined,
+  variantSku: undefined,
+  swatchLabel: "Blue",
+  storeTimezone: "UTC",
+  gridPriceFilterAvailable: false,
 };
 
 export const adminRoutes = {

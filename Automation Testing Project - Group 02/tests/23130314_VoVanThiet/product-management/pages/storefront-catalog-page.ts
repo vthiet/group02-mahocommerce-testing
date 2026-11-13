@@ -8,17 +8,17 @@ export class StorefrontCatalogPage {
   get pageBody() { return this.page.locator('body'); }
 
   async openConfiguredProduct(): Promise<void> {
-    if (!productManagementData.productUrl) throw new Error('Set PW_PM_PRODUCT_URL to run this storefront product scenario.');
+    if (!productManagementData.productUrl) throw new Error('Set productUrl in product-management-data.ts to run this storefront product scenario.');
     await openSlowPage(this.page, productManagementData.productUrl);
   }
 
   async openConfiguredCategory(): Promise<void> {
-    if (!productManagementData.categoryUrl) throw new Error('Set PW_PM_CATEGORY_URL to run this storefront category scenario.');
+    if (!productManagementData.categoryUrl) throw new Error('Set categoryUrl in product-management-data.ts to run this storefront category scenario.');
     await openSlowPage(this.page, productManagementData.categoryUrl);
   }
 
   async openConfiguredConfigurable(): Promise<void> {
-    if (!productManagementData.configurableProductUrl) throw new Error('Set PW_PM_CONFIGURABLE_PRODUCT_URL to run configurable storefront scenarios.');
+    if (!productManagementData.configurableProductUrl) throw new Error('Set configurableProductUrl in product-management-data.ts to run configurable storefront scenarios.');
     await openSlowPage(this.page, productManagementData.configurableProductUrl);
   }
 

@@ -4,7 +4,7 @@ import { promotionData } from '../data/promotion-data';
 import { cartData } from '../../shopping-cart/data/cart-data';
 
 export class PromotionStorefrontPage {
-  constructor(private readonly page: Page) {}
+  constructor(readonly page: Page) {}
 
   get cartRows(): Locator { return this.page.locator('#shopping-cart-table tbody tr').filter({ has: this.page.locator('input[name*="[qty]"]') }); }
   get promoCodeInput(): Locator { return this.page.locator('#maho-promo-code, input[name="coupon_code"], input[name="coupon"] ').first(); }

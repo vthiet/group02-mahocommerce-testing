@@ -4,7 +4,7 @@ import { openSlowPage } from '../../product-management/support/slow-page';
 import { promotionData, promotionRoutes } from '../data/promotion-data';
 
 export type PromotionKind = 'catalog' | 'cart';
-export type CartAction = 'by_percent' | 'cart_fixed' | 'buy_x_get_y';
+export type CartAction = 'by_percent' | 'by_fixed' | 'cart_fixed' | 'buy_x_get_y' | 'free_shipping';
 
 export type RuleInput = {
   name: string;
@@ -15,6 +15,9 @@ export type RuleInput = {
   amount?: number;
   priority?: number;
   stopFurtherRules?: boolean;
+  catalogAction?: 'by_percent' | 'by_fixed';
+  websiteLabel?: string;
+  customerGroupLabel?: string;
   usesPerCoupon?: number;
   usesPerCustomer?: number;
   discountStep?: number;
@@ -70,11 +73,11 @@ export class PromotionAdminPage {
 
   async createCatalogRule(input: RuleInput, saveAndApply = true): Promise<void> {
     await this.openNewRule('catalog');
-    await this.fillRuleBase(input.name, input.active ?? true, input.fromDate, input.toDate);
+    await this.fillRuleBase(input.name, input.active ?? true, input.fromDate, input.toDate, input.websiteLabel, input.customerGroupLabel);
     const priority = this.page.locator('input[name="sort_order"]');
     if (await priority.count()) await priority.fill(String(input.priority ?? 1));
     await this.openTab('Actions');
-    await this.page.locator('select[name="simple_action"]').first().selectOption('by_percent');
+    await this.page.locator('select[name="simple_action"]').first().selectOption(input.catalogAction ?? 'by_percent');
     await this.page.locator('input[name="discount_amount"]').first().fill(String(input.amount ?? 10));
     await this.page.locator('select[name="stop_rules_processing"]').first().selectOption(input.stopFurtherRules ? '1' : '0');
     const button = saveAndApply ? this.page.getByRole('button', { name: /save and apply/i }) : this.page.getByRole('button', { name: /^save$/i });
@@ -84,7 +87,7 @@ export class PromotionAdminPage {
 
   async createCartRule(input: RuleInput): Promise<void> {
     await this.openNewRule('cart');
-    await this.fillRuleBase(input.name, input.active ?? true, input.fromDate, input.toDate);
+    await this.fillRuleBase(input.name, input.active ?? true, input.fromDate, input.toDate, input.websiteLabel, input.customerGroupLabel);
     const couponType = input.couponType ?? 'specific';
     const typeValue = couponType === 'none' ? '1' : couponType === 'auto' ? '3' : '2';
     await this.page.locator('select[name="coupon_type"]').selectOption(typeValue);
@@ -111,6 +114,14 @@ export class PromotionAdminPage {
     await expect(this.form).toBeVisible({ timeout: 60_000 });
   }
 
+  async updateCatalogDiscount(name: string, amount: number): Promise<void> {
+    await this.openRuleByName('catalog', name);
+    await this.openTab('Actions');
+    await this.page.locator('input[name="discount_amount"]').fill(String(amount));
+    await this.page.getByRole('button', { name: /save and apply/i }).click();
+    await expect(this.messages).toContainText('The rules have been applied.', { timeout: 60_000 });
+  }
+
   async deleteRule(kind: PromotionKind, name: string): Promise<void> {
     await this.openRuleByName(kind, name);
     this.page.once('dialog', dialog => dialog.accept());
@@ -132,11 +143,11 @@ export class PromotionAdminPage {
     for (const row of await couponRows.all()) await expect(row).toContainText(/\b0\b/);
   }
 
-  private async fillRuleBase(name: string, active: boolean, fromDate?: Date, toDate?: Date): Promise<void> {
+  private async fillRuleBase(name: string, active: boolean, fromDate?: Date, toDate?: Date, websiteLabel = promotionData.websiteLabel, customerGroupLabel = promotionData.customerGroupLabel): Promise<void> {
     await this.page.locator('input[name="name"]').fill(name);
     await this.page.locator('select[name="is_active"]').selectOption(active ? '1' : '0');
-    await this.selectOptionIfPresent('select[name="website_ids[]"]', promotionData.websiteLabel);
-    await this.selectOptionIfPresent('select[name="customer_group_ids[]"]', promotionData.customerGroupLabel);
+    await this.selectOptionIfPresent('select[name="website_ids[]"]', websiteLabel);
+    await this.selectOptionIfPresent('select[name="customer_group_ids[]"]', customerGroupLabel);
     await this.fillDate('from_date', this.formatDate(fromDate ?? this.dateOffset(-1)));
     await this.fillDate('to_date', this.formatDate(toDate ?? this.dateOffset(1)));
   }

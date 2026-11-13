@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/shopping-cart-fixtures';
-import { guestAddress } from '../data/cart-data';
+import { cartData as cartFixtureData, guestAddress } from '../data/cart-data';
 import {
   addProduct,
   cartRows,
@@ -9,6 +9,7 @@ import {
   navigateTo,
   openCart,
   skipUnlessEnv,
+  skipUnlessData,
 } from '../support/shopping-cart-helpers';
 
 test.describe('Shopping cart', () => {
@@ -271,9 +272,10 @@ test.describe('Registered customer and order administration', () => {
   });
 
   test('CartOrder-20: customer can view a placed order in order history', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD', 'PW_REGISTERED_ORDER_ID']);
+    await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD']);
+    skipUnlessData(testInfo, [['registeredOrderId', cartFixtureData.registeredOrderId]]);
     await openCustomerOrderHistory(page);
-    await expect(page.locator('body')).toContainText(process.env.PW_REGISTERED_ORDER_ID!);
+    await expect(page.locator('body')).toContainText(cartFixtureData.registeredOrderId!);
   });
 });
 
@@ -313,32 +315,32 @@ test.describe('Admin order workflow', () => {
   }
 
   test('CartOrder-21: admin can find and inspect an order', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ID']);
+    skipUnlessData(testInfo, [['adminOrderId', cartFixtureData.adminOrderId]]);
     await adminLogin(page, testInfo);
     await openAdminOrders(page);
     const orderIdFilter = page.locator('#sales_order_grid_filter_real_order_id, input[name="real_order_id"]').first();
     await expect(orderIdFilter, 'the admin orders grid should expose an order number filter').toBeVisible({ timeout: 30_000 });
-    await orderIdFilter.fill(process.env.PW_ADMIN_ORDER_ID!);
+    await orderIdFilter.fill(cartFixtureData.adminOrderId!);
     await page.getByRole('button', { name: /^search$/i }).click();
-    const orderRow = page.locator('tr').filter({ hasText: process.env.PW_ADMIN_ORDER_ID! }).first();
-    await expect(orderRow, `admin order grid should contain increment ID ${process.env.PW_ADMIN_ORDER_ID}`).toBeVisible({ timeout: 60_000 });
+    const orderRow = page.locator('tr').filter({ hasText: cartFixtureData.adminOrderId! }).first();
+    await expect(orderRow, `admin order grid should contain increment ID ${cartFixtureData.adminOrderId}`).toBeVisible({ timeout: 60_000 });
     await orderRow.locator('a').first().click();
     await expect(page.locator('body')).toContainText(/order information|order #/i);
   });
 
   test('CartOrder-22: admin can invoice a pending order', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ENTITY_ID']);
+    skipUnlessData(testInfo, [['adminOrderEntityId', cartFixtureData.adminOrderEntityId]]);
     await adminLogin(page, testInfo);
-    await openAdminOrderByEntityId(page, process.env.PW_ADMIN_ORDER_ENTITY_ID!);
+    await openAdminOrderByEntityId(page, cartFixtureData.adminOrderEntityId!);
     await page.getByRole('button', { name: /invoice/i }).click();
     await page.getByRole('button', { name: /submit invoice/i }).click();
     await expect(page.locator('.messages')).toContainText(/invoice has been created/i);
   });
 
   test('CartOrder-23: admin can ship an invoiced order and add tracking', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_ADMIN_ORDER_ENTITY_ID']);
+    skipUnlessData(testInfo, [['adminOrderEntityId', cartFixtureData.adminOrderEntityId]]);
     await adminLogin(page, testInfo);
-    await openAdminOrderByEntityId(page, process.env.PW_ADMIN_ORDER_ENTITY_ID!);
+    await openAdminOrderByEntityId(page, cartFixtureData.adminOrderEntityId!);
     await page.getByRole('button', { name: /ship/i }).click();
     await page.getByRole('button', { name: /add tracking number/i }).click();
     await page.locator('input[name*="tracking"][name*="number"]:not([disabled])').last().fill('TRACK123456');
@@ -347,19 +349,20 @@ test.describe('Admin order workflow', () => {
   });
 
   test('CartOrder-24: admin can cancel a pending order', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_CANCEL_ORDER_ENTITY_ID']);
+    skipUnlessData(testInfo, [['cancelOrderEntityId', cartFixtureData.cancelOrderEntityId]]);
     await adminLogin(page, testInfo);
-    await openAdminOrderByEntityId(page, process.env.PW_CANCEL_ORDER_ENTITY_ID!);
+    await openAdminOrderByEntityId(page, cartFixtureData.cancelOrderEntityId!);
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page.locator('body')).toContainText(/canceled/i);
   });
 
   test('CartOrder-25: customer order view reflects shipment tracking', async ({ page }, testInfo) => {
-    await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD', 'PW_REGISTERED_ORDER_ID']);
+    await skipUnlessEnv(testInfo, ['PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD']);
+    skipUnlessData(testInfo, [['registeredOrderId', cartFixtureData.registeredOrderId]]);
     await openCustomerOrderHistory(page);
-    const orderRow = page.locator('tr').filter({ hasText: process.env.PW_REGISTERED_ORDER_ID! }).first();
-    await expect(orderRow, `customer history should contain order ${process.env.PW_REGISTERED_ORDER_ID}`).toBeVisible();
+    const orderRow = page.locator('tr').filter({ hasText: cartFixtureData.registeredOrderId! }).first();
+    await expect(orderRow, `customer history should contain order ${cartFixtureData.registeredOrderId}`).toBeVisible();
     await orderRow.getByRole('link', { name: /view/i }).click();
     await page.getByRole('link', { name: 'Shipments', exact: true }).click();
     await expect(page.locator('body')).toContainText('TRACK123456');
