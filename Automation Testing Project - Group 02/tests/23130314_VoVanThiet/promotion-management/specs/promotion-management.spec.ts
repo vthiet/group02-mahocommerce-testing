@@ -6,12 +6,26 @@ import { PromotionStorefrontPage } from '../pages/promotion-storefront-page';
 const uniqueName = (prefix: string) => `${prefix}-${promotionData.runId}`;
 
 function skipWithoutProduct(testInfo: TestInfo): void {
-  if (promotionData.requiresProduct) testInfo.skip(true, 'Set PW_PROMO_PRODUCT_URL to an eligible local simple product URL.');
+  if (promotionData.requiresProduct) testInfo.skip(true, 'Set productUrl in promotion-data.ts to an eligible local simple product URL.');
 }
 
+const fixtureKeyToValue: Record<string, unknown> = {
+  PW_PROMO_FUTURE_PRODUCT_URL: promotionData.futureProductUrl, PW_PROMO_FUTURE_PRODUCT_PRICE: promotionData.futureProductPrice,
+  PW_PROMO_CALC_PRODUCT_URL: promotionData.calcProductUrl, PW_PROMO_CALC_PRODUCT_PRICE: promotionData.calcProductPrice,
+  PW_PROMO_PRIORITY_PRODUCT_URL: promotionData.priorityProductUrl, PW_PROMO_PRIORITY_PRODUCT_PRICE: promotionData.priorityProductPrice,
+  PW_PROMO_APPLY_PRODUCT_URL: promotionData.applyProductUrl, PW_PROMO_APPLY_PRODUCT_PRICE: promotionData.applyProductPrice,
+  PW_PROMO_SUBTOTAL_COUPON: promotionData.subtotalCoupon, PW_PROMO_SUBTOTAL_PRODUCT_99_URL: promotionData.subtotalProduct99Url,
+  PW_PROMO_SUBTOTAL_PRODUCT_100_URL: promotionData.subtotalProduct100Url, PW_PROMO_SUBTOTAL_PRODUCT_101_URL: promotionData.subtotalProduct101Url,
+  PW_PROMO_CATEGORY_PRODUCT_URL: promotionData.categoryProductUrl, PW_PROMO_NON_CATEGORY_PRODUCT_URL: promotionData.nonCategoryProductUrl,
+  PW_PROMO_CATEGORY_COUPON: promotionData.categoryCoupon, PW_PROMO_QUANTITY_COUPON: promotionData.quantityCoupon,
+  PW_PROMO_RULES_PRODUCT_URL: promotionData.rulesProductUrl, PW_PROMO_RULES_PRODUCT_PRICE: promotionData.rulesProductPrice,
+  PW_PROMO_CUSTOMER_LIMIT_COUPON: promotionData.customerLimitCoupon, PW_PROMO_GLOBAL_LIMIT_COUPON: promotionData.globalLimitCoupon,
+  PW_PROMO_FREE_SHIPPING_COUPON: promotionData.freeShippingCoupon,
+};
+
 function skipWithoutEnv(testInfo: TestInfo, keys: string[], setup: string): void {
-  const missing = keys.filter(key => !process.env[key]);
-  if (missing.length) testInfo.skip(true, `Configure ${missing.join(', ')} in playwright-automation/.env. ${setup}`);
+  const missing = keys.filter(key => !(key in fixtureKeyToValue ? fixtureKeyToValue[key] : process.env[key]));
+  if (missing.length) testInfo.skip(true, `Configure ${missing.join(', ')} in promotion-data.ts or .env as appropriate. ${setup}`);
 }
 
 async function prepareCart(store: import('../pages/promotion-storefront-page').PromotionStorefrontPage, url = promotionData.productUrl!) {
@@ -89,8 +103,8 @@ test.describe('Promotion Management: Catalog Price Rules', () => {
 
   test('CatalogRule-05 [Admin+Storefront]: future-dated rule does not alter product price', async ({ promotions, promoStorefront }, testInfo) => {
     skipWithoutEnv(testInfo, ['PW_PROMO_FUTURE_PRODUCT_URL', 'PW_PROMO_FUTURE_PRODUCT_PRICE'], 'Provide a product with no other matching catalog rule.');
-    const url = process.env.PW_PROMO_FUTURE_PRODUCT_URL!;
-    const price = Number(process.env.PW_PROMO_FUTURE_PRODUCT_PRICE);
+    const url = promotionData.futureProductUrl!;
+    const price = Number(promotionData.futureProductPrice);
     await promotions.login();
     const name = uniqueName('PW-Catalog-Future');
     let created = false;
@@ -110,14 +124,14 @@ test.describe('Promotion Management: Catalog Price Rules', () => {
 
   test('CatalogRule-06 [Admin+Storefront]: calculates percentage discount from original price', async ({ promotions, promoStorefront }, testInfo) => {
     skipWithoutEnv(testInfo, ['PW_PROMO_CALC_PRODUCT_URL', 'PW_PROMO_CALC_PRODUCT_PRICE'], 'Provide an isolated product without other matching catalog rules.');
-    const price = Number(process.env.PW_PROMO_CALC_PRODUCT_PRICE);
+    const price = Number(promotionData.calcProductPrice);
     await promotions.login();
     const name = uniqueName('PW-Catalog-Calc');
     let created = false;
     try {
       await promotions.createCatalogRule({ name, amount: 15 });
       created = true;
-      await promotions.openStorefrontProduct(process.env.PW_PROMO_CALC_PRODUCT_URL!);
+      await promotions.openStorefrontProduct(promotionData.calcProductUrl!);
       await promoStorefront.expectPrice(price * 0.85);
     } finally {
       if (created) await promotions.deleteRule('catalog', name);
@@ -126,7 +140,7 @@ test.describe('Promotion Management: Catalog Price Rules', () => {
 
   test('CatalogRule-07 [Admin+Storefront]: honors priority and Stop Further Rules', async ({ promotions, promoStorefront }, testInfo) => {
     skipWithoutEnv(testInfo, ['PW_PROMO_PRIORITY_PRODUCT_URL', 'PW_PROMO_PRIORITY_PRODUCT_PRICE'], 'Provide an isolated product and ensure no other catalog rules apply.');
-    const price = Number(process.env.PW_PROMO_PRIORITY_PRODUCT_PRICE);
+    const price = Number(promotionData.priorityProductPrice);
     await promotions.login();
     const first = uniqueName('PW-Catalog-Priority-1');
     const second = uniqueName('PW-Catalog-Priority-2');
@@ -137,7 +151,7 @@ test.describe('Promotion Management: Catalog Price Rules', () => {
       firstCreated = true;
       await promotions.createCatalogRule({ name: second, amount: 20, priority: 2 });
       secondCreated = true;
-      await promotions.openStorefrontProduct(process.env.PW_PROMO_PRIORITY_PRODUCT_URL!);
+      await promotions.openStorefrontProduct(promotionData.priorityProductUrl!);
       await promoStorefront.expectPrice(price * 0.9);
     } finally {
       if (secondCreated) await promotions.deleteRule('catalog', second);
@@ -147,14 +161,14 @@ test.describe('Promotion Management: Catalog Price Rules', () => {
 
   test('CatalogRule-08 [Admin+Storefront]: Save and Apply updates rule price', async ({ promotions, promoStorefront }, testInfo) => {
     skipWithoutEnv(testInfo, ['PW_PROMO_APPLY_PRODUCT_URL', 'PW_PROMO_APPLY_PRODUCT_PRICE'], 'Provide an isolated product for a visible before/after price assertion.');
-    const price = Number(process.env.PW_PROMO_APPLY_PRODUCT_PRICE);
+    const price = Number(promotionData.applyProductPrice);
     await promotions.login();
     const name = uniqueName('PW-Catalog-Apply');
     let created = false;
     try {
       await promotions.createCatalogRule({ name, amount: 10 });
       created = true;
-      await promotions.openStorefrontProduct(process.env.PW_PROMO_APPLY_PRODUCT_URL!);
+      await promotions.openStorefrontProduct(promotionData.applyProductUrl!);
       await promoStorefront.expectPrice(price * 0.9);
     } finally {
       if (created) await promotions.deleteRule('catalog', name);
@@ -240,9 +254,9 @@ test.describe('Promotion Management: Shopping Cart Price Rules', () => {
   test('CartRule-06 [Storefront]: checks subtotal threshold below, at, and above $100', async ({ promoStorefront, page }, testInfo) => {
     skipWithoutEnv(testInfo, ['PW_PROMO_SUBTOTAL_COUPON', 'PW_PROMO_SUBTOTAL_PRODUCT_99_URL', 'PW_PROMO_SUBTOTAL_PRODUCT_100_URL', 'PW_PROMO_SUBTOTAL_PRODUCT_101_URL'], 'Provision a subtotal threshold coupon and products with those exact totals.');
     const cases = [
-      { url: process.env.PW_PROMO_SUBTOTAL_PRODUCT_99_URL!, expectedDiscount: 0 },
-      { url: process.env.PW_PROMO_SUBTOTAL_PRODUCT_100_URL!, expectedDiscount: 10 },
-      { url: process.env.PW_PROMO_SUBTOTAL_PRODUCT_101_URL!, expectedDiscount: 10.1 },
+      { url: promotionData.subtotalProduct99Url!, expectedDiscount: 0 },
+      { url: promotionData.subtotalProduct100Url!, expectedDiscount: 10 },
+      { url: promotionData.subtotalProduct101Url!, expectedDiscount: 10.1 },
     ];
     for (const boundary of cases) {
       await promoStorefront.openProduct(boundary.url);
@@ -286,7 +300,7 @@ test.describe('Promotion Management: Shopping Cart Price Rules', () => {
   });
 
   test('CartRule-09 [Storefront]: enforces uses per customer at order placement', async ({ promoStorefront, page }, testInfo) => {
-    skipWithoutEnv(testInfo, ['PW_PROMO_CUSTOMER_LIMIT_COUPON', 'PW_PROMO_CUSTOMER_EMAIL', 'PW_PROMO_CUSTOMER_PASSWORD'], 'Provide a checkout-ready customer and an active rule with Uses per Customer = 1.');
+    skipWithoutEnv(testInfo, ['PW_PROMO_CUSTOMER_LIMIT_COUPON', 'PW_CUSTOMER_EMAIL', 'PW_CUSTOMER_PASSWORD'], 'Provide a checkout-ready customer and an active rule with Uses per Customer = 1.');
     skipWithoutProduct(testInfo);
     await promoStorefront.loginCustomer(promotionData.customerLimitEmail!, promotionData.customerLimitPassword!);
     await promoStorefront.openProduct(promotionData.productUrl!);
@@ -404,7 +418,7 @@ test.describe('Promotion Management: Shopping Cart Price Rules', () => {
       firstCreated = true;
       await promotions.createCartRule({ name: name2, couponType: 'none', action: 'cart_fixed', amount: 5, priority: 2 });
       secondCreated = true;
-      await promoStorefront.openProduct(process.env.PW_PROMO_RULES_PRODUCT_URL!);
+      await promoStorefront.openProduct(promotionData.rulesProductUrl!);
       await promoStorefront.addProduct();
       await promoStorefront.openCart();
       await expect(promoStorefront.discountValue).toContainText('10.00');

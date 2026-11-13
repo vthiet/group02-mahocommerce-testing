@@ -9,6 +9,8 @@ Dự án chứa các script kiểm thử tự động (end-to-end) cho trang web
 3. [Cài đặt](#3-cài-đặt)
 4. [Cấu hình](#4-cấu-hình)
 5. [Chạy kiểm thử](#5-chạy-kiểm-thử)
+   - [Các suite của thành viên 23130314](#51-các-suite-của-thành-viên-23130314)
+   - [Tài liệu defect mô phỏng](#52-tài-liệu-defect-mô-phỏng)
 6. [Xem báo cáo, trace và debug](#6-xem-báo-cáo-trace-và-debug)
 7. [Xử lý lỗi thường gặp](#7-xử-lý-lỗi-thường-gặp)
 
@@ -23,29 +25,32 @@ Dự án chứa các script kiểm thử tự động (end-to-end) cho trang web
 | Git | bản mới nhất |
 | Hệ điều hành | Windows / macOS / Linux |
 
-Ngoài ra cần có **trang MahoCommerce đang chạy** (website online) và tài khoản để đăng nhập khi kiểm thử.
+Ngoài ra cần có **môi trường MahoCommerce đang chạy và truy cập được** (local hoặc server kiểm thử), cùng tài khoản Admin/khách hàng cho các case cần xác thực.
 
 ## 2. Cấu trúc thư mục
 
-Dự án được tạo bằng `npm init playwright@latest`. Các script kiểm thử nằm trong thư mục `tests/`, được nhóm theo **MSSV_HoTen** của từng thành viên thực hiện.
+Dự án dùng Playwright Test với TypeScript. Test, test design và test data được nhóm theo **MSSV_HoTen** của từng thành viên.
 
 ```text
 .
-├── tests/
-│   ├── <MSSV_HoTen>/               
-│   │   ├── product-management.spec.ts
-│   │   └── ...
-│   ├── <MSSV_HoTen>/              
-│       ├── gift-card.spec.ts
-│       └── ...
-├── playwright.config.ts         # Cấu hình Playwright
-├── package.json
-├── package-lock.json
-├── .env                         # Biến môi trường (KHÔNG commit)
-├── .env.example                 # Mẫu biến môi trường
-├── playwright-report/           # Báo cáo HTML (tự sinh)
-└── test-results/                # Kết quả, trace, screenshot, video (tự sinh)
+├── Automation Testing Project - Group 02/
+│   ├── tests/<MSSV_HoTen>/<feature>/
+│   │   ├── data/                  # Dữ liệu và cấu hình fixture
+│   │   ├── pages/                 # Page Objects
+│   │   ├── specs/                 # Playwright tests
+│   │   └── ...                    # components, support, fixtures nếu cần
+│   ├── test-design/<MSSV_HoTen>/  # Ma trận và đặc tả test
+│   ├── playwright.config.ts
+│   ├── package.json
+│   ├── .env                       # Credentials (KHÔNG commit)
+│   └── .env.example
+├── README.md
+├── playwright-report/             # Báo cáo HTML (tự sinh)
+└── test-results/                  # Kết quả, trace, screenshot, video (tự sinh)
 ```
+
+Các test có thể cần website MahoCommerce local, tài khoản Admin và fixture sản phẩm/khách hàng. Mỗi feature README hoặc file `data/*` ghi rõ biến cấu hình còn thiếu; case thiếu fixture được đánh dấu skip.
+
 ## 3. Cài đặt
 
 **Bước 1 – Clone dự án**
@@ -167,6 +172,26 @@ Các tuỳ chọn hữu ích:
 | `npx playwright test --last-failed` | Chỉ chạy lại các test thất bại lần trước |
 
 > Các test thao tác trên cùng dữ liệu (thêm/sửa/xoá sản phẩm, khách hàng…) có thể ảnh hưởng lẫn nhau khi chạy song song. Nếu gặp lỗi không ổn định, thử `--workers=1`.
+
+### 5.1. Các suite của thành viên 23130314
+
+Chạy các lệnh sau từ thư mục `Automation Testing Project - Group 02/`:
+
+```bash
+npx playwright test tests/23130314_VoVanThiet/category-configurable/specs/category-configurable.spec.ts
+npx playwright test tests/23130314_VoVanThiet/promotion-rule-engine/specs/promotion-rule-engine.spec.ts
+npx playwright test tests/23130314_VoVanThiet/checkout-order-fulfillment/specs/checkout-order-fulfillment.spec.ts
+```
+
+Các suite dùng fixture sản phẩm, store view, customer và Admin được cấu hình riêng; kiểm tra `tests/23130314_VoVanThiet/<feature>/data/` trước khi chạy. Một số case cần cấu hình đặc biệt hoặc cần characterization trước sẽ được skip có lý do. Có thể chạy tất cả test của thành viên bằng:
+
+```bash
+npx playwright test tests/23130314_VoVanThiet
+```
+
+### 5.2. Tài liệu defect mô phỏng
+
+Các kịch bản luyện tập cho ba feature trên được ghi tại [`test-design/23130314_VoVanThiet/defect_scenarios_simulated.md`](Automation%20Testing%20Project%20-%20Group%2002/test-design/23130314_VoVanThiet/defect_scenarios_simulated.md). Đây là **defect giả lập, chưa xác minh**; không dùng như báo cáo lỗi đã phát hiện. Chỉ cập nhật actual result, reproducibility và evidence sau khi chạy lại trên website và thu thập minh chứng.
 
 ## 6. Xem báo cáo, trace và debug
 

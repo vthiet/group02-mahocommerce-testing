@@ -3,16 +3,16 @@ import type { TestInfo } from '@playwright/test';
 import { productManagementData as data } from '../data/product-management-data';
 import { openSlowPage } from '../support/slow-page';
 
-async function skipWithout(testInfo: TestInfo, keys: string[]): Promise<void> {
-  const missing = keys.filter(key => !process.env[key]);
-  if (missing.length) testInfo.skip(true, `Configure ${missing.join(', ')} for this local Maho scenario.`);
+async function skipWithout(testInfo: TestInfo, entries: Array<[string, unknown]>): Promise<void> {
+  const missing = entries.filter(([, value]) => value === undefined || value === null || value === '').map(([name]) => name);
+  if (missing.length) testInfo.skip(true, `Set ${missing.join(', ')} in product-management-data.ts for this local Maho scenario.`);
 }
 
 function storeDateOffset(days: number): string {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + days);
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: process.env.PW_PM_STORE_TIMEZONE ?? 'UTC',
+    timeZone: data.storeTimezone,
     month: '2-digit', day: '2-digit', year: 'numeric',
   }).format(date);
 }
@@ -95,7 +95,7 @@ test.describe('Product and catalog management', () => {
         const navigation = page.locator('nav, #nav, .nav-container').first();
         if (await navigation.count()) await expect(navigation.getByRole('link', { name: data.editedSubCategoryName, exact: true })).toHaveCount(0);
       } else {
-        testInfo.annotations.push({ type: 'setup-note', description: 'Set PW_PM_CATEGORY_URL to also check storefront navigation visibility.' });
+        testInfo.annotations.push({ type: 'setup-note', description: 'Set categoryUrl in product-management-data.ts to also check storefront navigation visibility.' });
       }
     });
 
@@ -154,7 +154,7 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-09: filters the grid by inclusive price range', async ({ adminSession, products }, testInfo) => {
     void adminSession;
-    if (!data.gridPriceFilterAvailable) testInfo.skip(true, 'Set PW_PM_PRICE_FILTER_AVAILABLE=true after confirming the local grid exposes From/To price filters.');
+    if (!data.gridPriceFilterAvailable) testInfo.skip(true, 'Set gridPriceFilterAvailable in product-management-data.ts after confirming the local grid exposes From/To price filters.');
     for (const [sku, price] of data.priceFixtureSkus.map((sku, index) => [sku, [9, 10, 25, 50, 51][index]] as const)) {
       await products.ensureSimpleProduct(sku, `PW Price ${price} ${data.runId}`, price.toFixed(2));
     }
@@ -231,7 +231,7 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-15: sets quantity to zero and checks storefront stock state', async ({ adminSession, products, page }, testInfo) => {
     void adminSession;
-    await skipWithout(testInfo, ['PW_PM_STOREFRONT_PRODUCT_SKU', 'PW_PM_PRODUCT_URL']);
+    await skipWithout(testInfo, [['storefrontSku', data.storefrontSku], ['productUrl', data.productUrl]]);
     await products.openProductBySku(data.storefrontSku!);
     await products.page.locator('#product_info_tabs_inventory').click().catch(() => undefined);
     const useConfigStock = products.page.locator('#inventory_use_config_manage_stock');
@@ -248,7 +248,7 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-16: displays the active special price on the storefront', async ({ adminSession, products, page }, testInfo) => {
     void adminSession;
-    await skipWithout(testInfo, ['PW_PM_STOREFRONT_PRODUCT_SKU', 'PW_PM_PRODUCT_URL']);
+    await skipWithout(testInfo, [['storefrontSku', data.storefrontSku], ['productUrl', data.productUrl]]);
     await products.openProductBySku(data.storefrontSku!);
     await products.fillProductField('price', '149.00');
     await products.fillProductField('special_price', '99.00');
@@ -262,7 +262,7 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-17: uploads a product gallery image', async ({ adminSession, products }, testInfo) => {
     void adminSession;
-    await skipWithout(testInfo, ['PW_PM_IMAGE_PATH']);
+    await skipWithout(testInfo, [['imagePath', data.imagePath]]);
     await products.ensureSimpleProduct(data.productSku, data.productName);
     await products.openProductBySku(data.productSku);
     await products.page.getByText('Images', { exact: true }).first().click().catch(() => undefined);
@@ -289,8 +289,8 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-19: creates a configurable product when a compatible attribute is configured', async ({ adminSession, products }, testInfo) => {
     void adminSession;
-    await skipWithout(testInfo, ['PW_PM_CONFIGURABLE_ATTRIBUTE']);
-    await products.beginNewConfigurable(process.env.PW_PM_CONFIGURABLE_ATTRIBUTE!);
+    await skipWithout(testInfo, [['configurableAttribute', data.configurableAttribute]]);
+    await products.beginNewConfigurable(data.configurableAttribute!);
     await products.fillProductField('name', `PW Configurable ${data.runId}`);
     await products.fillProductField('sku', `PW-PM-CONFIG-${data.runId}`);
     await products.fillProductField('price', '99.00');
@@ -300,7 +300,7 @@ test.describe('Product and catalog management', () => {
 
   test('ProdCat-20: associates an existing simple variant to a configurable product', async ({ adminSession, products }, testInfo) => {
     void adminSession;
-    await skipWithout(testInfo, ['PW_PM_CONFIGURABLE_SKU', 'PW_PM_VARIANT_SKU']);
+    await skipWithout(testInfo, [['configurableSku', data.configurableSku], ['variantSku', data.variantSku]]);
     await products.openProductBySku(data.configurableSku!);
     await products.page.getByText('Associated Products', { exact: true }).click();
     const chooser = products.page.locator('#config_super_product');
@@ -319,13 +319,13 @@ test.describe('Product and catalog management', () => {
   });
 
   test('ProdCat-21: displays a configured product on its storefront category page', async ({ storefront }, testInfo) => {
-    await skipWithout(testInfo, ['PW_PM_CATEGORY_URL', 'PW_PM_STOREFRONT_PRODUCT_NAME']);
+    await skipWithout(testInfo, [['categoryUrl', data.categoryUrl], ['storefrontProductName', data.storefrontProductName]]);
     await storefront.openConfiguredCategory();
     await expect(storefront.pageBody).toContainText(data.storefrontProductName!, { timeout: 60_000 });
   });
 
   test('ProdCat-22: opens the product detail page from its category listing', async ({ storefront }, testInfo) => {
-    await skipWithout(testInfo, ['PW_PM_CATEGORY_URL', 'PW_PM_STOREFRONT_PRODUCT_NAME']);
+    await skipWithout(testInfo, [['categoryUrl', data.categoryUrl], ['storefrontProductName', data.storefrontProductName]]);
     await storefront.openConfiguredCategory();
     await storefront.page.getByRole('link', { name: data.storefrontProductName!, exact: true }).click();
     await expect(storefront.page.locator('h1')).toContainText(data.storefrontProductName!, { timeout: 60_000 });
@@ -333,7 +333,7 @@ test.describe('Product and catalog management', () => {
   });
 
   test('ProdCat-23: adds two units to cart and checks mini-cart count, quantity, and subtotal', async ({ storefront, miniCart, cartPage }, testInfo) => {
-    await skipWithout(testInfo, ['PW_PM_PRODUCT_URL']);
+    await skipWithout(testInfo, [['productUrl', data.productUrl]]);
     await cartPage.empty();
     await storefront.openConfiguredProduct();
     await storefront.page.locator('#qty, input[name="qty"]').first().fill('2');
@@ -349,7 +349,7 @@ test.describe('Product and catalog management', () => {
   });
 
   test('ProdCat-24: selects a configured configurable-product swatch', async ({ storefront }, testInfo) => {
-    await skipWithout(testInfo, ['PW_PM_CONFIGURABLE_PRODUCT_URL', 'PW_PM_SWATCH_LABEL']);
+    await skipWithout(testInfo, [['configurableProductUrl', data.configurableProductUrl], ['swatchLabel', data.swatchLabel]]);
     await storefront.openConfiguredConfigurable();
     const swatch = storefront.page.locator(`[title="${data.swatchLabel}"], [aria-label="${data.swatchLabel}"], [data-option-label="${data.swatchLabel}"]`)
       .first()

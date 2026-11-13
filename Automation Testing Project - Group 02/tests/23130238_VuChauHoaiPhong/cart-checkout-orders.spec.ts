@@ -1,3 +1,9 @@
+// Lệnh test
+// $env:ASM7_WORKBOOK = "D:\Playwright\group02-mahocommerce-testing\Deprecated\reports\Group02_23130238_VuChauHoaiPhong.xlsx"
+// $env:QA_EMAIL="pvu560016@gmail.com"
+// $env:QA_PASSWORD="Phong123"
+// npx playwright test --ui --project=chromium
+
 import {
   test,
   expect,
