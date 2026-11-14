@@ -15,7 +15,7 @@ Tài liệu này tổng hợp toàn bộ danh mục các chức năng (features)
 | 2 | 23130238 | Vũ Châu Hoài Phong | `23130238_VuChauHoaiPhong/` | 1. Giỏ hàng, Đặt hàng & Hóa đơn (Cart, Checkout, Order & Invoice)<br>2. Tài khoản, Hồ sơ & Sổ địa chỉ (Profile & Address Book)<br>3. Tìm kiếm & Bộ lọc phân nhánh (Search & Faceted Filters) | 88 TCs (75 Func + 13 Defect) |
 | 3 | 23130314 | Võ Văn Thiệt | `23130314_VoVanThiet/` | 1. Category Tree & Configurable Product Variants<br>2. Promotion Rule Engine (Catalog and automatic Cart Rules)<br>3. One-Page Checkout & Order Fulfillment | Test design matrices in the feature documents |
 | 4 | 23130327 | Nguyễn Hoài Thương | `23130327_NguyenHoaiThuong/` | 1. Quản lý Mã giảm giá (Coupon & Discount Code System)<br>2. Báo cáo Thống kê Doanh thu (Sales Analytics & Reports)<br>3. Quản lý Giỏ hàng (Shopping Cart Details, BVA & Estimates) | ~70 TCs |
-| 5 | 23130397 | Thòng Lý Tiểu Yến | `23130397_ThongLyTieuYen/` | 1. Đăng nhập, Bảo mật & 2FA (Authentication, Security & 2FA)<br>2. Đánh giá & Xếp hạng sản phẩm (Product Reviews & Ratings)<br>3. Danh sách yêu thích & So sánh sản phẩm (Wishlist & Comparison) | 70 TCs (23 Auth + 23 Review + 24 Wishlist) |
+| 5 | 23130397 | Thòng Lý Tiểu Yến | `23130397_ThongLyTieuYen/` | 1. Quản lý Đánh giá & Xếp hạng phía Admin (Admin Reviews & Ratings - Admin Panel)<br>2. Đánh giá & Xếp hạng sản phẩm (Product Reviews & Ratings - Storefront)<br>3. Quản lý Danh sách yêu thích của khách hàng (Customer Wishlist Management) | 66 TCs (22 Admin Review + 22 Product Review + 22 Customer Wishlist) |
 
 ---
 
@@ -124,28 +124,28 @@ Tài liệu này tổng hợp toàn bộ danh mục các chức năng (features)
 ### 2.5. Thư mục `23130397_ThongLyTieuYen/`
 * **Người thực hiện:** Thòng Lý Tiểu Yến (MSSV: 23130397)
 * **Tài liệu nguồn:**
-  - `test_design_authentication_and_2fa.md` & `test_spec_details_authentication_and_2fa.md`
+  - `test_design_admin_reviews_and_ratings.md` & `test_spec_details_admin_reviews_and_ratings.md`
   - `test_design_product_reviews_and_ratings.md` & `test_spec_details_product_reviews_and_ratings.md`
   - `test_design_wishlist_and_comparison.md` & `test_spec_details_wishlist_and_comparison.md`
-* **Phương pháp:** Equivalence Partitioning (EP), Boundary Value Analysis (BVA), Input Sanitization, Security & Multi-Window Testing.
+* **Môi trường & Công cụ:** Maho Commerce Admin Panel & Storefront Web Demo, Playwright TypeScript, Microsoft Excel (`AB-SD` standard format).
+* **Phương pháp:** Equivalence Partitioning (EP), Boundary Value Analysis (BVA), Decision Table, State Transition, Input Sanitization, Security & Multi-Window Testing.
 
 #### Danh mục chức năng kiểm thử:
-1. **Đăng nhập, Bảo mật & 2FA (Authentication, Security & 2FA - 23 TCs):**
-   - **Xác thực & Bắt lỗi form:** Đăng nhập thành công với tài khoản hợp lệ, từ chối khi nhập sai mật khẩu hoặc tài khoản chưa đăng ký, validation khi bỏ trống trường bắt buộc, email sai cú pháp, xử lý email không phân biệt chữ hoa/thường (case-insensitivity), mật khẩu chứa khoảng trắng đầu/cuối (trimming).
-   - **Khôi phục mật khẩu (Forgot Password):** Gửi email khôi phục mật khẩu, validation form quên mật khẩu.
-   - **Bảo mật & Phòng thủ hệ thống:** Bảo mật Form Key CSRF Token chống tấn công CSRF, che giấu mật khẩu (`type="password"`), chống tấn công SQL Injection trên form xác thực, chính sách giới hạn số lần đăng nhập sai (Account Lockout / Rate Limiting chống Brute Force).
-   - **Quản lý phiên (Session Management):** Cơ chế hủy session an toàn khi đăng xuất (Sign Out), vô hiệu hóa nút Back của trình duyệt ngăn chặn truy cập lịch sử sau khi đăng xuất.
-   - **Xác thực 2 yếu tố (2FA):** Cơ chế xác thực hai yếu tố qua ứng dụng Authenticator (TOTP) và tin nhắn SMS (ghi nhận trạng thái Skipped trên môi trường Demo).
-2. **Đánh giá & Xếp hạng Sản phẩm (Product Reviews & Ratings - 23 TCs):**
-   - **Form đánh giá & Modal:** Điều hướng đến trang chi tiết sản phẩm (PDP) và mở form đánh giá qua modal/dialog `#review-form`, đóng form an toàn bằng nút Cancel.
-   - **Tiêu chí đánh giá sao (Star Ratings):** Lựa chọn độc lập hoặc đồng thời thang điểm từ 1 đến 5 sao cho từng tiêu chí (*Quality*, *Price*, *Value*).
-   - **Gửi nhận xét & Validation:** Gửi bài đánh giá hợp lệ (Nickname, Summary, Review text), bắt lỗi validation khi thiếu sao, thiếu nội dung chi tiết hoặc bỏ trống toàn bộ form.
-   - **Giới hạn dữ liệu & Ký tự:** Nội dung nhận xét đạt độ dài tối thiểu, giới hạn tối đa trường tiêu đề Summary (Max Length), hỗ trợ tiếng Việt có dấu (Unicode UTF-8) và ký tự đặc biệt.
-   - **Bảo mật & Chống Spam:** Mã hóa/escape ký tự HTML/JavaScript chống tấn công XSS, cơ chế chống gửi nhận xét trùng lặp liên tục (Double submit / Spam Review Protection).
-   - **Tích hợp tài khoản khách hàng:** Tự động điền Nickname khi khách hàng đã đăng nhập tài khoản thực hiện đánh giá.
-3. **Danh sách yêu thích & So sánh Sản phẩm (Wishlist & Comparison - 24 TCs):**
-   - **Kiểm soát quyền truy cập Wishlist:** Khách vãng lai (Guest) chưa đăng nhập cố gắng vào Wishlist sẽ bị chặn và chuyển hướng về trang Login.
-   - **Quản lý Wishlist (CRUD):** Đăng nhập và thêm sản phẩm vào Wishlist thành công, hiển thị đầy đủ thông tin (tên, ảnh, giá), cập nhật số lượng (Quantity) và tính lại bảng, xóa từng sản phẩm khỏi Wishlist có xác nhận popup, giao diện rỗng khi không còn sản phẩm.
-   - **Quy trình So sánh Sản phẩm (Product Comparison):** Thêm sản phẩm thứ nhất và thứ hai vào danh sách so sánh từ Catalog/PDP, chống thêm trùng lặp sản phẩm đã có, mở cửa sổ popup so sánh chi tiết (`Compare Window`), kiểm tra cấu trúc bảng đối chiếu thông số sản phẩm (Specs Matrix), xóa 1 sản phẩm khỏi bảng so sánh, xóa toàn bộ danh sách so sánh (`Clear All Compare`).
-   - **Tác vụ thương mại:** Chuyển toàn bộ sản phẩm từ Wishlist vào Giỏ hàng (`Add All to Cart`), chia sẻ danh sách yêu thích qua Email (`Share Wishlist`), ghi chú nhận xét riêng cho từng mặt hàng trong Wishlist, liên kết quay lại mua sắm (`Continue Shopping`).
-   - **Defect & Kiểm thử biên:** Giới hạn trần số lượng sản phẩm so sánh (phát hiện lỗi tràn giao diện ngang - Horizontal Overflow).
+1. **Quản lý Đánh giá & Xếp hạng phía Admin (Admin Reviews & Ratings - 22 TCs):**
+   - **Bảng lưới quản trị (All Reviews Grid):** Phân quyền truy cập Admin (`[AdminReview-1]`), lọc theo trạng thái (`[AdminReview-2]`), lọc theo loại người tạo & reset filter (`[AdminReview-3]`), tìm kiếm theo tiêu đề & tác giả (`[AdminReview-4]`), xử lý tìm kiếm không tồn tại rỗng an toàn (`[AdminReview-5]`), sắp xếp tăng/giảm theo ID & ngày tạo (`[AdminReview-6]`), phân trang & tùy chỉnh kích thước trang 20/50/100 (`[AdminReview-7]`).
+   - **Hàng đợi kiểm duyệt (Pending Reviews Moderation):** Truy cập hàng đợi duyệt nhanh (`[AdminReview-8]`), thao tác hàng loạt phê duyệt nhiều bài đánh giá (`[AdminReview-9]`), từ chối hàng loạt (`[AdminReview-10]`), xóa hàng loạt có popup xác nhận an toàn (`[AdminReview-11]`).
+   - **Chi tiết đánh giá & Xác thực (Edit Review & Validation):** Giao diện chỉnh sửa chi tiết (`[AdminReview-12]`), phê duyệt đơn lẻ & điều chỉnh điểm sao tiêu chí Quality/Price/Value (`[AdminReview-13]`), từ chối đơn lẻ (`[AdminReview-14]`), bắt lỗi trường bắt buộc Title/Review (`[AdminReview-15]`), kiểm thử biên độ dài tối đa Summary 255 ký tự (`[AdminReview-16]` - Defect phát hiện thiếu maxlength).
+   - **Bảo mật & Vòng đời chuyển trạng thái:** Chống tấn công Stored XSS trong Admin (`[AdminReview-17]`), bảo mật Form Key CSRF token (`[AdminReview-18]`), kiểm thử chuyển trạng thái vòng đời đánh giá và đồng bộ hiển thị Storefront PDP (`[AdminReview-19]`), xuất danh sách tệp tin Excel/CSV (`[AdminReview-20]` - Skipped), phát hiện lỗi thiếu Audit Log / Moderation History (`[AdminReview-21]` - Defect), tự động gửi email thông báo duyệt bài đánh giá (`[AdminReview-22]` - Skipped).
+2. **Đánh giá & Xếp hạng Sản phẩm phía Storefront (Product Reviews & Ratings - 22 TCs):**
+   - **Form đánh giá & Modal:** Điều hướng đến trang chi tiết sản phẩm (PDP) và mở form đánh giá qua modal dialog (`[ProductReview-1]`), đóng form an toàn bằng nút Cancel (`[ProductReview-10]`).
+   - **Tiêu chí đánh giá sao (Star Ratings):** Hiển thị thang điểm sao 1-5 sao (`[ProductReview-2]`), chọn linh hoạt các mức sao (`[ProductReview-3]`), đánh giá độc lập từng tiêu chí Quality, Price, Value (`[ProductReview-19]`).
+   - **Gửi nhận xét & Validation:** Gửi bài đánh giá hợp lệ (`[ProductReview-4]`), bắt lỗi validation khi thiếu sao (`[ProductReview-5]`), thiếu nội dung chi tiết (`[ProductReview-6]`), bỏ trống toàn bộ form (`[ProductReview-7]`), bỏ trống Nickname (`[ProductReview-13]`), bỏ trống Summary (`[ProductReview-14]`).
+   - **Giới hạn dữ liệu & Ký tự:** Nội dung nhận xét đạt độ dài tối thiểu (`[ProductReview-8]`), giới hạn tối đa trường tiêu đề Summary (`[ProductReview-15]`), hỗ trợ tiếng Việt có dấu Unicode UTF-8 (`[ProductReview-9]`).
+   - **Bảo mật & Chống Spam:** Mã hóa/escape ký tự HTML/JavaScript chống tấn công XSS (`[ProductReview-16]`), phát hiện lỗi thiếu debounce chống gửi trùng lặp (`[ProductReview-17]` - Defect), phát hiện lỗi thiếu bộ đếm ký tự countdown (`[ProductReview-18]` - Defect).
+   - **Tích hợp tài khoản & Mở rộng:** Tự động điền Nickname từ tài khoản (`[ProductReview-20]`), hiển thị danh sách Customer Reviews (`[ProductReview-11]`), thông báo kiểm duyệt Moderation Notice (`[ProductReview-12]`), tải ảnh đính kèm (`[ProductReview-21]` - Skipped), huy hiệu Verified Buyer (`[ProductReview-22]` - Skipped).
+3. **Quản lý Danh sách yêu thích của khách hàng (Customer Wishlist Management - 22 TCs):**
+   - **Kiểm soát quyền truy cập & Bảo vệ xác thực:** Khách vãng lai chưa đăng nhập bị chặn và chuyển hướng an toàn về trang Login (`[Wishlist-1]`).
+   - **Quản lý Wishlist (CRUD):** Đăng nhập và thêm sản phẩm vào Wishlist (`[Wishlist-2]`), hiển thị đầy đủ thông tin tên/ảnh/giá (`[Wishlist-3]`), cập nhật số lượng Qty (`[Wishlist-4]`), thêm nhận xét/ghi chú từng mặt hàng (`[Wishlist-5]`), xóa từng sản phẩm có xác nhận popup (`[Wishlist-12]`), kiểm tra hộp thoại xác nhận xóa (`[Wishlist-13]`), giao diện thông báo khi Wishlist rỗng (`[Wishlist-14]`), hiển thị nhiều sản phẩm (`[Wishlist-19]`).
+   - **Tác vụ thương mại & Điều hướng:** Chuyển sản phẩm đơn lẻ vào Giỏ hàng (`[Wishlist-6]`), chuyển toàn bộ sản phẩm vào Giỏ hàng (`[Wishlist-7]`), liên kết quay lại mua sắm Continue Shopping (`[Wishlist-15]`), truy cập Wishlist từ menu điều hướng tài khoản cá nhân My Account (`[Wishlist-16]`).
+   - **Quy trình Chia sẻ Wishlist qua Email:** Điều hướng mở form chia sẻ (`[Wishlist-8]`), chia sẻ thành công với email hợp lệ và lời nhắn (`[Wishlist-9]`), kiểm tra validation để trống email (`[Wishlist-10]`), kiểm tra validation email sai định dạng (`[Wishlist-11]`).
+   - **Defect, Bảo mật & Tính năng mở rộng:** Phát hiện lỗi ô nhập Qty thiếu thuộc tính `min="1"` tại Client-side (`[Wishlist-17]` - Defect DEF_WIS_002), phát hiện lỗi trường Message chia sẻ thiếu thuộc tính `maxlength="500"` (`[Wishlist-18]` - Defect DEF_WIS_003), kiểm tra Form Key CSRF Token chống giả mạo (`[Wishlist-20]`), đồng bộ qua mạng xã hội (`[Wishlist-21]` - Skipped), xuất danh sách ra PDF/Excel (`[Wishlist-22]` - Skipped).
