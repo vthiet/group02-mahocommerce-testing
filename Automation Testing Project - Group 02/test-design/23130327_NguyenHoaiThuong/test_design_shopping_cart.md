@@ -31,16 +31,16 @@ Phân hệ **Quản lý Giỏ hàng (Shopping Cart Management)** là bước chu
 
 | Requirement Level 1 | Requirement Level 2 | Requirement Level 3 | Test Criteria (Test Case Description) | Test Type | Execution Strategy / Automation Note (Playwright) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **3. Quản lý Giỏ hàng (Shopping Cart)** | 3.1 Thao tác sản phẩm | Thêm vào giỏ | Cart_Add_01: [Positive] Thêm sản phẩm đơn giản vào giỏ hàng thành công | Function | Thêm SP & Banner xanh |
-| **** |  | Chi tiết bảng giỏ hàng | Cart_Display_01: [Display] Kiểm tra giao diện và cấu trúc bảng chi tiết giỏ hàng | GUI / Display | Tên, giá, qty, subtotal |
-| **** | 3.2 Cập nhật số lượng (BVA) | Tăng số lượng (Nominal) | Cart_Qty_01: [Positive] Cập nhật tăng số lượng sản phẩm trong giỏ hàng (Qty = 2) | Function | Nhân đôi subtotal |
-| **** |  | Biên tối thiểu hợp lệ (Min) | Cart_Qty_02: [BVA] Cập nhật số lượng sản phẩm ở mốc biên tối thiểu hợp lệ (Qty = 1) | Boundary Value | Min Qty = 1 |
-| **** |  | Mốc số lượng lớn (Max) | Cart_Qty_03: [BVA] Cập nhật số lượng sản phẩm ở mốc lớn hợp lệ (Qty = 5) | Boundary Value | Large Qty = 5 |
-| **** | 3.3 Ước tính phí vận chuyển & thuế | Cấu trúc khối ước tính | Cart_Estimate_01: Kiểm tra khối chức năng Ước tính Phí vận chuyển & Thuế (Estimate Shipping and Tax) | Function | Country, Postcode, Estimate |
-| **** |  | Thay đổi Quốc gia | Cart_Estimate_02: Kiểm tra tương tác chọn quốc gia khác trong bộ tính phí vận chuyển | Interactive | Chọn United States |
-| **** | 3.4 Điều hướng & Dọn dẹp giỏ | Nút Tiếp tục mua sắm | Cart_Navigation_01: Kiểm tra hiển thị và điều hướng của nút Tiếp tục mua sắm (Continue Shopping) | GUI / Navigation | Nút Continue Shopping |
-| **** |  | Xóa một sản phẩm | Cart_Remove_01: [Positive] Xóa một sản phẩm cụ thể ra khỏi giỏ hàng | Function | Xử lý confirm dialog |
-| **** |  | Giỏ hàng rỗng (Empty) | Cart_Empty_01: [Positive] Kiểm tra giao diện giỏ hàng khi không có sản phẩm (Empty State) | Function / State | Shopping Cart is Empty |
+| **3. Quản lý Giỏ hàng (Shopping Cart)** | 3.1 Thao tác sản phẩm | Thêm vào giỏ | [Positive] Thêm sản phẩm đơn giản vào giỏ hàng thành công | Function | Thêm SP & Banner xanh |
+| **** |  | Chi tiết bảng giỏ hàng | [Display] Kiểm tra giao diện và cấu trúc bảng chi tiết giỏ hàng | GUI / Display | Tên, giá, qty, subtotal |
+| **** | 3.2 Cập nhật số lượng (BVA) | Tăng số lượng (Nominal) | [Positive] Cập nhật tăng số lượng sản phẩm trong giỏ hàng (Qty = 2) | Function | Nhân đôi subtotal |
+| **** |  | Biên tối thiểu hợp lệ (Min) | [BVA] Cập nhật số lượng sản phẩm ở mốc biên tối thiểu hợp lệ (Qty = 1) | Boundary Value | Min Qty = 1 |
+| **** |  | Mốc số lượng lớn (Max) | [BVA] Cập nhật số lượng sản phẩm ở mốc lớn hợp lệ (Qty = 5) | Boundary Value | Large Qty = 5 |
+| **** | 3.3 Ước tính phí vận chuyển & thuế | Cấu trúc khối ước tính | Kiểm tra khối chức năng Ước tính Phí vận chuyển & Thuế (Estimate Shipping and Tax) | Function | Country, Postcode, Estimate |
+| **** |  | Thay đổi Quốc gia | Kiểm tra tương tác chọn quốc gia khác trong bộ tính phí vận chuyển | Interactive | Chọn United States |
+| **** | 3.4 Điều hướng & Dọn dẹp giỏ | Nút Tiếp tục mua sắm | Kiểm tra hiển thị và điều hướng của nút Tiếp tục mua sắm (Continue Shopping) | GUI / Navigation | Nút Continue Shopping |
+| **** |  | Xóa một sản phẩm | [Positive] Xóa một sản phẩm cụ thể ra khỏi giỏ hàng | Function | Xử lý confirm dialog |
+| **** |  | Giỏ hàng rỗng (Empty) | [Positive] Kiểm tra giao diện giỏ hàng khi không có sản phẩm (Empty State) | Function / State | Shopping Cart is Empty |
 
 ---
 

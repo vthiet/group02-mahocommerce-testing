@@ -32,18 +32,18 @@ Phân hệ **Quản lý Mã giảm giá (Coupon / Discount Code System)** đảm
 
 | Requirement Level 1 | Requirement Level 2 | Requirement Level 3 | Test Criteria (Test Case Description) | Test Type | Execution Strategy / Automation Note (Playwright) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **2. Quản lý Mã giảm giá (Coupon System)** | 2.1 Quản trị Admin | Truy cập phân hệ | Coupon_Admin_01: Kiểm tra truy cập trang Quản lý Mã giảm giá (Shopping Cart Price Rules) trong Admin | Roles & Permission | Happy path |
-| **** |  | Lưới danh sách | Coupon_Admin_02: Kiểm tra cấu trúc lưới hiển thị danh sách mã giảm giá (Grid view) | GUI / Display | Đầy đủ cột |
-| **** |  | Mở form tạo mới | Coupon_Admin_03: Kiểm tra mở form tạo mới quy tắc mã giảm giá (Add New Rule) | Function | Nút Add |
-| **** |  | Validation Admin | Coupon_Admin_04: [Validation] Kiểm tra bắt lỗi khi lưu quy tắc mã giảm giá để trống trường bắt buộc | Validation | Bắt lỗi form rỗng |
-| **** |  | Cấu hình mã Coupon | Coupon_Admin_05: Kiểm tra cấu hình loại Coupon cụ thể (Specific Coupon) và ô nhập mã Coupon Code | Function | Mã TESTSALE15 |
-| **** |  | Tìm kiếm quy tắc | Coupon_Admin_06: Kiểm tra lọc và tìm kiếm quy tắc giảm giá trên Grid Admin | Search / Filter | Lọc theo tên |
-| **** | 2.2 Áp dụng tại Giỏ hàng | Giao diện nhập mã | Coupon_Store_01: Storefront - Kiểm tra giao diện ô nhập mã giảm giá và nút Apply trong giỏ hàng | GUI / Display | Ô maho-promo-code |
-| **** |  | Mã không tồn tại | Coupon_Store_02: Storefront - [Negative] Áp dụng mã giảm giá không tồn tại trên hệ thống | Negative | Mã INVALID_9999 |
-| **** |  | Bỏ trống mã | Coupon_Store_03: Storefront - [Validation] Bấm Apply khi để trống ô nhập mã giảm giá | Validation | Cảnh báo trống |
-| **** |  | Cắt khoảng trắng Trim | Coupon_Store_04: Storefront - [BVA] Kiểm tra nhập mã giảm giá chứa khoảng trắng đầu cuối (Trim check) | Boundary Value | Trim space |
-| **** |  | Ký tự đặc biệt | Coupon_Store_05: Storefront - [Negative/BVA] Kiểm tra nhập chuỗi ký tự đặc biệt làm mã giảm giá | Boundary Value | Ký tự đặc biệt |
-| **** |  | Bảo mật XSS | Coupon_Store_06: Storefront - [Security] Kiểm tra không bị tấn công XSS / Script Injection qua ô nhập Coupon | Security | Chống XSS |
+| **2. Quản lý Mã giảm giá (Coupon System)** | 2.1 Quản trị Admin | Truy cập phân hệ | Kiểm tra truy cập trang Quản lý Mã giảm giá (Shopping Cart Price Rules) trong Admin | Roles & Permission | Happy path |
+| **** |  | Lưới danh sách | Kiểm tra cấu trúc lưới hiển thị danh sách mã giảm giá (Grid view) | GUI / Display | Đầy đủ cột |
+| **** |  | Mở form tạo mới | Kiểm tra mở form tạo mới quy tắc mã giảm giá (Add New Rule) | Function | Nút Add |
+| **** |  | Validation Admin | [Validation] Kiểm tra bắt lỗi khi lưu quy tắc mã giảm giá để trống trường bắt buộc | Validation | Bắt lỗi form rỗng |
+| **** |  | Cấu hình mã Coupon | Kiểm tra cấu hình loại Coupon cụ thể (Specific Coupon) và ô nhập mã Coupon Code | Function | Mã TESTSALE15 |
+| **** |  | Tìm kiếm quy tắc | Kiểm tra lọc và tìm kiếm quy tắc giảm giá trên Grid Admin | Search / Filter | Lọc theo tên |
+| **** | 2.2 Áp dụng tại Giỏ hàng | Giao diện nhập mã | Kiểm tra giao diện ô nhập mã giảm giá và nút Apply trong giỏ hàng | GUI / Display | Ô maho-promo-code |
+| **** |  | Mã không tồn tại | [Negative] Áp dụng mã giảm giá không tồn tại trên hệ thống | Negative | Mã INVALID_9999 |
+| **** |  | Bỏ trống mã | [Validation] Bấm Apply khi để trống ô nhập mã giảm giá | Validation | Cảnh báo trống |
+| **** |  | Cắt khoảng trắng Trim | [BVA] Kiểm tra nhập mã giảm giá chứa khoảng trắng đầu cuối (Trim check) | Boundary Value | Trim space |
+| **** |  | Ký tự đặc biệt | [Negative/BVA] Kiểm tra nhập chuỗi ký tự đặc biệt làm mã giảm giá | Boundary Value | Ký tự đặc biệt |
+| **** |  | Bảo mật XSS | [Security] Kiểm tra không bị tấn công XSS / Script Injection qua ô nhập Coupon | Security | Chống XSS |
 
 ---
 
